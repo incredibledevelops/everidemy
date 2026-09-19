@@ -1,0 +1,270 @@
+{% extends "super_admin/base.html" %}
+{% block page_title %}Subscriptions{% endblock %}
+{% block breadcrumb %}Subscriptions{% endblock %}
+
+{% block content %}
+
+{# ============================================================
+   Precompute filtered rows + stats once at the top
+   ============================================================ #}
+{% set q_filter = request.args.get('q', '').strip()|lower %}
+{% set s_filter = request.args.get('status', 'all') %}
+
+{% set filtered = [] %}
+{% set ns = namespace(
+    active=0,
+    trialing=0,
+    past_due=0,
+    canceled=0,
+    mrr=0,
+) %}
+
+{% for row in rows %}
+  {% set school_name = row.school.name if row.school else '' %}
+  {% set matches_search = (not q_filter) or (q_filter in school_name|lower) %}
+  {% set matches_status = (s_filter == 'all') or (s_filter == row.sub.status) %}
+  {% if matches_search and matches_status %}
+    {% set _ = filtered.append(row) %}
+
+    {# Tally counts regardless of subscription status #}
+    {% if row.sub.status == 'active' %}
+      {% set ns.active = ns.active + 1 %}
+      {% set ns.mrr = ns.mrr + plans.get(row.sub.plan, {}).get('price', 0) %}
+    {% elif row.sub.status == 'trialing' %}
+      {% set ns.trialing = ns.trialing + 1 %}
+    {% elif row.sub.status == 'past_due' %}
+      {% set ns.past_due = ns.past_due + 1 %}
+    {% elif row.sub.status == 'canceled' %}
+      {% set ns.canceled = ns.canceled + 1 %}
+    {% endif %}
+  {% endif %}
+{% endfor %}
+
+
+<!-- =========================
+     SUMMARY CARDS
+     ========================= -->
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Total</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ filtered|length }}</p>
+    <p class="mt-1 text-xs text-slate-500">
+      {% if q_filter or s_filter != 'all' %}
+        Matching filters
+      {% else %}
+        All subscriptions
+      {% endif %}
+    </p>
+  </div>
+
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Active</p>
+    <p class="mt-2 text-3xl font-extrabold text-green-600">{{ ns.active }}</p>
+    <p class="mt-1 text-xs text-slate-500">Paying schools</p>
+  </div>
+
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Trialing</p>
+    <p class="mt-2 text-3xl font-extrabold text-brand-600">{{ ns.trialing }}</p>
+    <p class="mt-1 text-xs text-slate-500">In free trial</p>
+  </div>
+
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">MRR</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ format_money(ns.mrr) }}</p>
+    <p class="mt-1 text-xs text-slate-500">Monthly recurring</p>
+  </div>
+</div>
+
+
+<!-- =========================
+     SUBSCRIPTIONS TABLE
+     ========================= -->
+<div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+
+  <!-- Header + filter -->
+  <div class="p-5 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between border-b border-slate-100">
+
+    <div class="min-w-0">
+      <h2 class="font-bold">
+        All subscriptions
+        <span class="text-slate-400 font-normal">({{ filtered|length }})</span>
+      </h2>
+      {% if q_filter or s_filter != 'all' %}
+        <p class="mt-1 text-xs text-slate-500">
+          Filtered
+          {% if q_filter %}by <span class="font-semibold text-slate-700">“{{ q_filter }}”</span>{% endif %}
+          {% if s_filter != 'all' %}· status = <span class="font-semibold text-slate-700">{{ s_filter }}</span>{% endif %}
+        </p>
+      {% endif %}
+    </div>
+
+    <form method="GET" class="flex flex-col sm:flex-row gap-2 sm:items-center">
+      <input type="text" name="q" value="{{ request.args.get('q','') }}"
+             placeholder="Search school…"
+             class="px-3 py-2 text-sm rounded-lg border border-slate-200
+                    focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none">
+
+      <select name="status"
+              class="px-3 py-2 text-sm rounded-lg border border-slate-200
+                     focus:border-brand-500 outline-none">
+        <option value="all"      {{ 'selected' if s_filter == 'all' }}>All statuses</option>
+        <option value="active"   {{ 'selected' if s_filter == 'active' }}>Active</option>
+        <option value="trialing" {{ 'selected' if s_filter == 'trialing' }}>Trialing</option>
+        <option value="past_due" {{ 'selected' if s_filter == 'past_due' }}>Past due</option>
+        <option value="canceled" {{ 'selected' if s_filter == 'canceled' }}>Canceled</option>
+      </select>
+
+      <button class="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white">
+        Filter
+      </button>
+
+      {% if q_filter or s_filter != 'all' %}
+        <a href="{{ url_for('super_admin.subscriptions_page') }}"
+           class="px-4 py-2 text-sm font-semibold rounded-lg border border-slate-200
+                  text-slate-600 hover:bg-slate-50 text-center">
+          Reset
+        </a>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- Table -->
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm min-w-[900px]">
+      <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
+        <tr>
+          <th class="text-left px-5 py-3 font-semibold">School</th>
+          <th class="text-left px-5 py-3 font-semibold">Plan</th>
+          <th class="text-left px-5 py-3 font-semibold">Status</th>
+          <th class="text-left px-5 py-3 font-semibold">Next billing</th>
+          <th class="text-right px-5 py-3 font-semibold">Amount</th>
+          <th class="text-right px-5 py-3 font-semibold">Actions</th>
+        </tr>
+      </thead>
+
+      <tbody class="divide-y divide-slate-100">
+        {% set status_styles = {
+          'active':   'bg-green-50 text-green-700',
+          'trialing': 'bg-brand-50 text-brand-700',
+          'past_due': 'bg-red-50 text-red-700',
+          'canceled': 'bg-slate-100 text-slate-600',
+        } %}
+
+        {% for row in filtered %}
+          <tr class="hover:bg-slate-50 transition">
+
+            <!-- School -->
+            <td class="px-5 py-4">
+              {% if row.school %}
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-lg bg-brand-100 grid place-items-center
+                              text-brand-700 font-bold text-xs shrink-0">
+                    {{ row.school.name[:2]|upper }}
+                  </div>
+                  <div class="min-w-0">
+                    <a href="{{ url_for('super_admin.school_detail', school_id=row.school._id) }}"
+                       class="font-semibold hover:text-brand-600 truncate block">
+                      {{ row.school.name }}
+                    </a>
+                    {% if row.school.phone %}
+                      <p class="text-xs text-slate-500 truncate">{{ row.school.phone }}</p>
+                    {% endif %}
+                  </div>
+                </div>
+              {% else %}
+                <span class="text-slate-400 italic">— Deleted school —</span>
+              {% endif %}
+            </td>
+
+            <!-- Plan -->
+            <td class="px-5 py-4">
+              <span class="text-xs font-semibold px-2 py-1 rounded bg-slate-100 text-slate-700">
+                {{ row.sub.plan|capitalize }}
+              </span>
+            </td>
+
+            <!-- Status -->
+            <td class="px-5 py-4">
+              <span class="text-xs font-semibold px-2 py-1 rounded
+                           {{ status_styles.get(row.sub.status, 'bg-slate-100 text-slate-600') }}">
+                ● {{ row.sub.status|replace('_',' ')|capitalize }}
+              </span>
+            </td>
+
+            <!-- Next billing -->
+            <td class="px-5 py-4 text-slate-500 whitespace-nowrap">
+              {% if row.sub.next_billing_date %}
+                {{ row.sub.next_billing_date.strftime('%b %d, %Y') }}
+              {% else %}
+                —
+              {% endif %}
+            </td>
+
+            <!-- Amount -->
+            <td class="px-5 py-4 text-right font-semibold whitespace-nowrap">
+              {{ format_money(plans.get(row.sub.plan, {}).get('price', 0)) }}
+              <span class="text-xs text-slate-400 font-normal">/ mo</span>
+            </td>
+
+            <!-- Actions -->
+            <td class="px-5 py-4 text-right whitespace-nowrap">
+              {% if row.school %}
+                <a href="{{ url_for('super_admin.school_detail', school_id=row.school._id) }}"
+                   class="text-brand-600 text-xs font-semibold hover:underline">
+                  Manage
+                </a>
+              {% else %}
+                <span class="text-xs text-slate-400">—</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="6" class="px-5 py-16 text-center">
+              <div class="max-w-sm mx-auto">
+                <div class="w-16 h-16 mx-auto rounded-2xl bg-brand-50 grid place-items-center text-brand-600 text-2xl">
+                  💳
+                </div>
+                <p class="mt-4 font-semibold text-slate-700">
+                  {% if q_filter or s_filter != 'all' %}
+                    No subscriptions match your filters
+                  {% else %}
+                    No subscriptions yet
+                  {% endif %}
+                </p>
+                <p class="mt-1 text-sm text-slate-500">
+                  {% if q_filter or s_filter != 'all' %}
+                    Try a different search term or reset the filters.
+                  {% else %}
+                    Schools appear here as soon as they register.
+                  {% endif %}
+                </p>
+                {% if q_filter or s_filter != 'all' %}
+                  <a href="{{ url_for('super_admin.subscriptions_page') }}"
+                     class="mt-4 inline-block px-4 py-2 text-sm font-semibold rounded-lg
+                            border border-slate-200 text-slate-700 hover:bg-slate-50">
+                    Clear filters
+                  </a>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Footer note -->
+  <div class="px-5 py-4 border-t border-slate-100 text-xs text-slate-500
+              flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+    <span>Billing handled by Paystack · Currency: {{ currency_code }}</span>
+    <a href="{{ url_for('super_admin.settings') }}"
+       class="text-brand-600 font-semibold hover:underline">
+      Configure pricing →
+    </a>
+  </div>
+</div>
+
+{% endblock %}

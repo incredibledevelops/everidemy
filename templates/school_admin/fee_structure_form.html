@@ -1,0 +1,177 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}{{ 'New fee structure' if mode == 'create' else 'Edit ' ~ structure.name }}{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.fees_page') }}" class="hover:text-brand-600">Fees</a>
+  / {{ 'New' if mode == 'create' else 'Edit' }}
+{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('school_admin.fees_page') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to fees
+</a>
+
+<div class="max-w-3xl mx-auto bg-white rounded-2xl border border-slate-100 p-6 sm:p-8">
+
+  <div class="flex items-start gap-3">
+    <div class="w-11 h-11 rounded-xl bg-brand-50 grid place-items-center text-brand-600 text-lg">💳</div>
+    <div>
+      <h2 class="font-bold text-xl">
+        {{ 'Create a fee structure' if mode == 'create' else 'Edit fee structure' }}
+      </h2>
+      <p class="mt-1 text-sm text-slate-500">
+        {{ 'Define the fees for a class + term. You can generate invoices afterward.' if mode == 'create'
+           else 'Update fee items and due date.' }}
+      </p>
+    </div>
+  </div>
+
+  <form method="POST" class="mt-8 space-y-6" id="fs-form">
+    {% if mode == 'edit' %}
+      <input type="hidden" name="_id" value="{{ structure._id }}">
+    {% endif %}
+
+    <div>
+      <label class="text-sm font-semibold text-slate-700">Structure name <span class="text-red-500">*</span></label>
+      <input type="text" name="name" value="{{ form.get('name','') }}" required
+             class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                    focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+             placeholder="JSS 1A Fees — First Term 2024/25">
+    </div>
+
+    <div class="grid sm:grid-cols-3 gap-4">
+      <div>
+        <label class="text-sm font-semibold text-slate-700">Class</label>
+        <select name="class_id"
+                class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                       focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none bg-white">
+          <option value="">All classes</option>
+          {% for c in class_list %}
+            <option value="{{ c.id }}" {{ 'selected' if form.get('class_id') == c.id }}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="text-sm font-semibold text-slate-700">Term <span class="text-red-500">*</span></label>
+        <select name="term" required
+                class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                       focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none bg-white">
+          {% for key, label in terms %}
+            <option value="{{ key }}" {{ 'selected' if form.get('term') == key }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="text-sm font-semibold text-slate-700">Academic year <span class="text-red-500">*</span></label>
+        <input type="text" name="academic_year" value="{{ form.get('academic_year','') }}" required
+               class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                      focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+               placeholder="2024/2025">
+      </div>
+    </div>
+
+    <div>
+      <label class="text-sm font-semibold text-slate-700">Due date</label>
+      <input type="date" name="due_date" value="{{ form.get('due_date','') }}"
+             class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                    focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none">
+    </div>
+
+    <!-- Fee items -->
+    <div>
+      <div class="flex items-center justify-between">
+        <label class="text-sm font-semibold text-slate-700">Fee items <span class="text-red-500">*</span></label>
+        <button type="button" onclick="addItemRow()"
+                class="text-xs font-semibold text-brand-600 hover:underline">+ Add item</button>
+      </div>
+
+      <div id="items-container" class="mt-3 space-y-2">
+        {% set items = form.get('items', []) %}
+        {% if items %}
+          {% for it in items %}
+            <div class="flex gap-2 item-row">
+              <input type="text" name="item_name" value="{{ it.name }}"
+                     placeholder="Item name (e.g. Tuition)"
+                     class="flex-1 px-3 py-2.5 text-sm rounded-lg border border-slate-200
+                            focus:border-brand-500 outline-none">
+              <input type="number" name="item_amount" value="{{ it.amount }}" step="0.01" min="0"
+                     placeholder="Amount"
+                     oninput="updateTotal()"
+                     class="w-32 px-3 py-2.5 text-sm rounded-lg border border-slate-200
+                            focus:border-brand-500 outline-none text-right">
+              <button type="button" onclick="removeItemRow(this)"
+                      class="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm">✕</button>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="flex gap-2 item-row">
+            <input type="text" name="item_name" placeholder="Tuition"
+                   class="flex-1 px-3 py-2.5 text-sm rounded-lg border border-slate-200
+                          focus:border-brand-500 outline-none">
+            <input type="number" name="item_amount" step="0.01" min="0" placeholder="800"
+                   oninput="updateTotal()"
+                   class="w-32 px-3 py-2.5 text-sm rounded-lg border border-slate-200
+                          focus:border-brand-500 outline-none text-right">
+            <button type="button" onclick="removeItemRow(this)"
+                    class="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm">✕</button>
+          </div>
+        {% endif %}
+      </div>
+
+      <div class="mt-4 flex items-center justify-between px-4 py-3 rounded-xl bg-brand-50 border border-brand-100">
+        <span class="text-sm font-semibold text-brand-700">Total per student</span>
+        <span id="total-display" class="text-xl font-extrabold text-brand-700">{{ format_money(form.get('total', 0)) }}</span>
+      </div>
+    </div>
+
+    <div class="flex gap-3 pt-6 border-t border-slate-100">
+      <button type="submit"
+              class="px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold">
+        {{ 'Create structure' if mode == 'create' else 'Save changes' }}
+      </button>
+      <a href="{{ url_for('school_admin.fees_page') }}"
+         class="px-5 py-3 rounded-xl border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
+
+<script>
+function addItemRow() {
+  const container = document.getElementById('items-container');
+  const row = document.createElement('div');
+  row.className = 'flex gap-2 item-row';
+  row.innerHTML = `
+    <input type="text" name="item_name" placeholder="Item name"
+           class="flex-1 px-3 py-2.5 text-sm rounded-lg border border-slate-200 focus:border-brand-500 outline-none">
+    <input type="number" name="item_amount" step="0.01" min="0" placeholder="0"
+           oninput="updateTotal()"
+           class="w-32 px-3 py-2.5 text-sm rounded-lg border border-slate-200 focus:border-brand-500 outline-none text-right">
+    <button type="button" onclick="removeItemRow(this)"
+            class="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm">✕</button>
+  `;
+  container.appendChild(row);
+}
+
+function removeItemRow(btn) {
+  const rows = document.querySelectorAll('.item-row');
+  if (rows.length <= 1) return;
+  btn.closest('.item-row').remove();
+  updateTotal();
+}
+
+function updateTotal() {
+  const amounts = document.querySelectorAll('input[name="item_amount"]');
+  let total = 0;
+  amounts.forEach(a => {
+    const n = parseFloat(a.value);
+    if (!isNaN(n)) total += n;
+  });
+  document.getElementById('total-display').textContent = 'GH₵ ' + total.toLocaleString();
+}
+updateTotal();
+</script>
+{% endblock %}

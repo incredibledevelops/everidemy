@@ -1,0 +1,156 @@
+{% extends "super_admin/base.html" %}
+{% block page_title %}Platform Overview{% endblock %}
+
+{% block content %}
+
+<!-- =========================
+     KPI CARDS
+     ========================= -->
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Active Schools</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ metrics.active_schools if metrics else 0 }}</p>
+    <p class="mt-1 text-xs text-green-600 font-semibold">
+      {{ metrics.trialing if metrics else 0 }} trialing ·
+      {{ metrics.suspended if metrics else 0 }} suspended
+    </p>
+  </div>
+
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">MRR</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ format_money(metrics.mrr if metrics else 0) }}</p>
+    <p class="mt-1 text-xs text-slate-500">Monthly recurring revenue</p>
+  </div>
+
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Total Students</p>
+    <p class="mt-2 text-3xl font-extrabold">
+      {{ '{:,}'.format(metrics.total_students) if metrics else '0' }}
+    </p>
+    <p class="mt-1 text-xs text-slate-500">Across all tenants</p>
+  </div>
+
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Total Schools</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ metrics.total_schools if metrics else 0 }}</p>
+    <p class="mt-1 text-xs text-slate-500">
+      {{ metrics.open_tickets if metrics else 0 }} open tickets
+    </p>
+  </div>
+</div>
+
+
+<!-- =========================
+     CHART + NEWEST SCHOOLS
+     ========================= -->
+<div class="grid lg:grid-cols-3 gap-6">
+
+  <!-- Revenue chart -->
+  <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-100">
+    <div class="flex justify-between items-center">
+      <h2 class="font-bold">Revenue growth</h2>
+      <select class="text-sm border border-slate-200 rounded-lg px-2 py-1">
+        <option>Last 6 months</option>
+      </select>
+    </div>
+
+    <svg viewBox="0 0 600 200" class="mt-6 w-full h-56">
+      <defs>
+        <linearGradient id="grad" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="#3454f5" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#3454f5" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+
+      <g stroke="#eef1f7" stroke-width="1">
+        <line x1="0" y1="50"  x2="600" y2="50"/>
+        <line x1="0" y1="100" x2="600" y2="100"/>
+        <line x1="0" y1="150" x2="600" y2="150"/>
+      </g>
+
+      <path d="M0,160 C50,150 100,140 150,120 C200,105 250,110 300,90 C350,72 400,60 450,50 C500,42 550,35 600,25 L600,200 L0,200 Z"
+            fill="url(#grad)"/>
+      <path d="M0,160 C50,150 100,140 150,120 C200,105 250,110 300,90 C350,72 400,60 450,50 C500,42 550,35 600,25"
+            fill="none" stroke="#3454f5" stroke-width="3"/>
+    </svg>
+
+    <div class="flex justify-between text-xs text-slate-500 mt-3">
+      <span>Sep</span><span>Oct</span><span>Nov</span>
+      <span>Dec</span><span>Jan</span><span>Feb</span>
+    </div>
+  </div>
+
+  <!-- Newest schools -->
+  <div class="bg-white rounded-2xl p-6 border border-slate-100">
+    <div class="flex items-center justify-between">
+      <h2 class="font-bold">Newest schools</h2>
+      <a href="{{ url_for('super_admin.schools_list') }}"
+         class="text-brand-600 text-xs font-semibold hover:underline">All →</a>
+    </div>
+
+    <ul class="mt-4 space-y-4 text-sm">
+      {% for s in recent_schools %}
+        <li class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-lg bg-brand-100 grid place-items-center text-brand-700 font-bold text-xs">
+            {{ s.name[:2]|upper }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold truncate">{{ s.name }}</p>
+            {% if s.phone %}
+              <p class="text-xs text-slate-500 truncate">{{ s.phone }}</p>
+            {% endif %}
+          </div>
+          <a href="{{ url_for('super_admin.school_detail', school_id=s._id) }}"
+             class="text-brand-600 text-xs font-semibold hover:underline">View</a>
+        </li>
+      {% else %}
+        <li class="text-slate-500">
+          No schools yet.
+          <a href="{{ url_for('super_admin.school_new') }}"
+             class="text-brand-600 font-semibold">Add one →</a>
+        </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
+
+<!-- =========================
+     RECENT ACTIVITY
+     ========================= -->
+<div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+  <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+    <h2 class="font-bold">Recent platform activity</h2>
+    <a href="{{ url_for('super_admin.audit_logs_page') }}"
+       class="text-brand-600 text-sm font-semibold hover:underline">All logs →</a>
+  </div>
+
+  <ul class="divide-y divide-slate-100 text-sm">
+    {% for log in activity %}
+      <li class="px-5 py-4 flex items-center gap-4">
+        <span class="text-xs font-mono px-2 py-1 rounded bg-slate-100 text-slate-700 whitespace-nowrap">
+          {{ log.action }}
+        </span>
+
+        <span class="text-slate-600 flex-1 truncate">
+          {% if log.meta %}
+            {% for k, v in log.meta.items() %}
+              <span class="text-slate-400">{{ k }}:</span> {{ v }}{% if not loop.last %} · {% endif %}
+            {% endfor %}
+          {% else %}
+            <span class="text-slate-400">—</span>
+          {% endif %}
+        </span>
+
+        <span class="text-xs text-slate-400 whitespace-nowrap">
+          {{ log.timestamp.strftime('%b %d · %H:%M') }}
+        </span>
+      </li>
+    {% else %}
+      <li class="px-5 py-8 text-center text-slate-500">No activity yet.</li>
+    {% endfor %}
+  </ul>
+</div>
+
+{% endblock %}

@@ -1,0 +1,126 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Attendance history{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.attendance_page') }}" class="hover:text-brand-600">Attendance</a>
+  / History
+{% endblock %}
+
+{% block content %}
+
+<!-- Stats -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Sessions</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ stats.sessions }}</p>
+    <p class="mt-1 text-xs text-slate-500">Classes marked</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Overall %</p>
+    <p class="mt-2 text-3xl font-extrabold {{ 'text-green-600' if stats.pct >= 90 else 'text-amber-600' if stats.pct >= 75 else 'text-red-600' }}">
+      {{ stats.pct }}%
+    </p>
+    <p class="mt-1 text-xs text-slate-500">Present + late</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Present</p>
+    <p class="mt-2 text-3xl font-extrabold text-green-600">{{ stats.present }}</p>
+    <p class="mt-1 text-xs text-slate-500">of {{ stats.total }} records</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Absent</p>
+    <p class="mt-2 text-3xl font-extrabold text-red-600">{{ stats.absent }}</p>
+    <p class="mt-1 text-xs text-slate-500">{{ stats.late }} late · {{ stats.excused }} excused</p>
+  </div>
+</div>
+
+<!-- Filter -->
+<div class="bg-white rounded-2xl border border-slate-100 p-5">
+  <form method="GET" class="grid sm:grid-cols-4 gap-3">
+    <div>
+      <label class="text-xs uppercase font-semibold text-slate-500">Class</label>
+      <select name="class_id"
+              class="mt-1.5 w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-brand-500 outline-none bg-white">
+        <option value="">All classes</option>
+        {% for c in class_list %}
+          <option value="{{ c._id }}" {{ 'selected' if class_id == c._id|string }}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="text-xs uppercase font-semibold text-slate-500">From</label>
+      <input type="date" name="from" value="{{ from_date.strftime('%Y-%m-%d') }}"
+             class="mt-1.5 w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-brand-500 outline-none">
+    </div>
+    <div>
+      <label class="text-xs uppercase font-semibold text-slate-500">To</label>
+      <input type="date" name="to" value="{{ to_date.strftime('%Y-%m-%d') }}"
+             class="mt-1.5 w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-brand-500 outline-none">
+    </div>
+    <div class="flex items-end gap-2">
+      <button class="flex-1 px-4 py-2 text-sm font-semibold rounded-lg bg-slate-900 text-white">Filter</button>
+      <a href="{{ url_for('school_admin.attendance_history') }}"
+         class="px-4 py-2 text-sm font-semibold rounded-lg border border-slate-200 hover:bg-slate-50">Reset</a>
+    </div>
+  </form>
+</div>
+
+<!-- Records table -->
+<div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+  <div class="p-5 border-b border-slate-100">
+    <h2 class="font-bold">Attendance records <span class="text-slate-400 font-normal">({{ records|length }})</span></h2>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm min-w-[800px]">
+      <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
+        <tr>
+          <th class="text-left px-5 py-3 font-semibold">Date</th>
+          <th class="text-left px-5 py-3 font-semibold">Class</th>
+          <th class="text-left px-5 py-3 font-semibold">Present</th>
+          <th class="text-left px-5 py-3 font-semibold">Absent</th>
+          <th class="text-left px-5 py-3 font-semibold">Late</th>
+          <th class="text-left px-5 py-3 font-semibold">Excused</th>
+          <th class="text-right px-5 py-3 font-semibold">%</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for d in records %}
+          <tr class="hover:bg-slate-50">
+            <td class="px-5 py-4 whitespace-nowrap">
+              <p class="font-semibold">{{ d.date.strftime('%b %d, %Y') }}</p>
+              <p class="text-xs text-slate-500">{{ d.date.strftime('%A') }}</p>
+            </td>
+            <td class="px-5 py-4">
+              {% if d._class %}
+                <a href="{{ url_for('school_admin.attendance_page', class_id=d._class._id, date=d.date.strftime('%Y-%m-%d')) }}"
+                   class="font-semibold text-brand-600 hover:underline">
+                  {{ d._class.name }}
+                </a>
+              {% else %}<span class="text-slate-400">—</span>{% endif %}
+            </td>
+            <td class="px-5 py-4"><span class="font-semibold text-green-700">{{ d._summary.present }}</span></td>
+            <td class="px-5 py-4"><span class="font-semibold text-red-700">{{ d._summary.absent }}</span></td>
+            <td class="px-5 py-4"><span class="font-semibold text-amber-700">{{ d._summary.late }}</span></td>
+            <td class="px-5 py-4"><span class="font-semibold text-blue-700">{{ d._summary.excused }}</span></td>
+            <td class="px-5 py-4 text-right">
+              <span class="font-bold {{ 'text-green-600' if d._summary.pct >= 90 else 'text-amber-600' if d._summary.pct >= 75 else 'text-red-600' }}">
+                {{ d._summary.pct }}%
+              </span>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="7" class="px-5 py-16 text-center">
+              <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-50 grid place-items-center text-slate-400 text-2xl">
+                📋
+              </div>
+              <p class="mt-4 font-semibold text-slate-700">No attendance records</p>
+              <p class="mt-1 text-sm text-slate-500">Try a different date range or class filter.</p>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

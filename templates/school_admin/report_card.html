@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Report Card · {{ student.first_name }} {{ student.last_name }} · {{ term_label }}</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', sans-serif; }
+
+  @media print {
+    @page { size: A4; margin: 12mm; }
+    body { background: #fff !important; }
+    .no-print { display: none !important; }
+    .print-break { page-break-after: always; }
+  }
+</style>
+</head>
+<body class="bg-slate-100">
+
+<!-- =========================================================
+     TOOLBAR (hidden in print)
+     ========================================================= -->
+<div class="no-print sticky top-0 z-30 bg-white border-b border-slate-200 px-4 py-3
+            flex flex-wrap gap-3 items-center justify-between">
+  <div class="flex items-center gap-3">
+    <a href="{{ url_for('school_admin.student_detail', student_id=student._id, tab='grades') }}"
+       class="text-sm font-semibold text-slate-600 hover:text-brand-600">
+      ← Back to profile
+    </a>
+    <span class="text-slate-300">|</span>
+    <form method="GET" class="flex gap-2">
+      <select name="term" onchange="this.form.submit()"
+              class="px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white">
+        {% for key, label in terms %}
+          <option value="{{ key }}" {{ 'selected' if term == key }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+      <input type="hidden" name="academic_year" value="{{ academic_year }}">
+    </form>
+  </div>
+
+  <div class="flex gap-2">
+    <button onclick="window.print()"
+            class="px-4 py-2 text-sm font-semibold rounded-lg bg-brand-600 hover:bg-brand-700 text-white">
+      🖨️ Print / Save as PDF
+    </button>
+  </div>
+</div>
+
+
+<!-- =========================================================
+     REPORT CARD
+     ========================================================= -->
+<div class="max-w-[210mm] mx-auto my-8 p-8 sm:p-10 bg-white shadow-xl">
+
+  <!-- ---------- Header ---------- -->
+  <div class="flex items-center gap-4 pb-6 border-b-2 border-ink-900">
+    <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700
+                grid place-items-center text-white font-extrabold text-2xl shrink-0">
+      {{ current_school.name[:1]|upper if current_school else 'E' }}
+    </div>
+    <div class="flex-1 min-w-0">
+      <h1 class="text-2xl font-extrabold leading-tight truncate">
+        {{ current_school.name if current_school else platform_name }}
+      </h1>
+      <p class="text-sm text-slate-500">
+        {% if current_school and current_school.address %}
+          {{ current_school.address.street or '' }}
+          {% if current_school.address.city %}· {{ current_school.address.city }}{% endif %}
+        {% endif %}
+        {% if current_school and current_school.phone %} · {{ current_school.phone }}{% endif %}
+      </p>
+    </div>
+    <div class="text-right shrink-0">
+      <p class="text-xs uppercase tracking-widest font-bold text-slate-500">Report Card</p>
+      <p class="text-lg font-extrabold">{{ term_label }}</p>
+      <p class="text-xs text-slate-500">{{ academic_year }}</p>
+    </div>
+  </div>
+
+  <!-- ---------- Student info ---------- -->
+  <div class="grid sm:grid-cols-2 gap-4 py-6 border-b border-slate-200">
+    <div class="flex items-center gap-4">
+      <div class="w-16 h-16 rounded-xl bg-brand-100 grid place-items-center
+                  text-brand-700 font-extrabold text-xl shrink-0">
+        {{ student.first_name[:1]|upper }}{{ student.last_name[:1]|upper if student.last_name }}
+      </div>
+      <div class="min-w-0">
+        <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Student</p>
+        <p class="text-lg font-bold truncate">
+          {{ student.first_name }}
+          {% if student.middle_name %}{{ student.middle_name }} {% endif %}
+          {{ student.last_name }}
+        </p>
+        <p class="text-sm text-slate-500 font-mono">{{ student.admission_no }}</p>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-3 text-sm">
+      <div>
+        <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Class</p>
+        <p class="font-bold">{{ klass.name if klass else 'Unassigned' }}</p>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Gender</p>
+        <p class="font-bold">{{ student.gender|capitalize if student.gender else '—' }}</p>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Position in class</p>
+        <p class="font-bold">
+          {% if class_rank and class_size %}
+            {{ class_rank }} of {{ class_size }}
+          {% else %}—{% endif %}
+        </p>
+      </div>
+      <div>
+        <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Attendance</p>
+        <p class="font-bold">{{ attendance_pct }}%</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- Grades table ---------- -->
+  <div class="py-6">
+    <h2 class="font-bold text-lg mb-3">Academic Performance</h2>
+
+    {% if rows %}
+      <table class="w-full text-sm border border-slate-200">
+        <thead class="bg-slate-100">
+          <tr>
+            <th class="text-left px-3 py-2 font-bold border-b border-slate-200">Subject</th>
+            <th class="text-center px-3 py-2 font-bold border-b border-slate-200 w-20">CA</th>
+            <th class="text-center px-3 py-2 font-bold border-b border-slate-200 w-20">Exam</th>
+            <th class="text-center px-3 py-2 font-bold border-b border-slate-200 w-20">Total</th>
+            <th class="text-center px-3 py-2 font-bold border-b border-slate-200 w-16">Grade</th>
+            <th class="text-left px-3 py-2 font-bold border-b border-slate-200">Remark</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+            <tr class="border-b border-slate-100">
+              <td class="px-3 py-2 font-semibold">
+                {{ r.subject }}
+                {% if r.code %}<span class="text-xs text-slate-400">({{ r.code }})</span>{% endif %}
+              </td>
+              <td class="px-3 py-2 text-center">{{ r.ca }}</td>
+              <td class="px-3 py-2 text-center">{{ r.exam }}</td>
+              <td class="px-3 py-2 text-center font-bold">{{ r.total }}</td>
+              <td class="px-3 py-2 text-center">
+                <span class="inline-block text-xs font-bold px-2 py-0.5 rounded
+                      {{ 'bg-green-100 text-green-800' if r.grade in ['A1','B2','B3']
+                         else 'bg-blue-100 text-blue-800' if r.grade in ['C4','C5','C6']
+                         else 'bg-amber-100 text-amber-800' if r.grade in ['D7','E8']
+                         else 'bg-red-100 text-red-800' }}">
+                  {{ r.grade }}
+                </span>
+              </td>
+              <td class="px-3 py-2 text-slate-600 text-xs">{{ r.remark }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot class="bg-slate-50">
+          <tr>
+            <td colspan="3" class="px-3 py-2 font-bold text-right">Overall Average:</td>
+            <td class="px-3 py-2 text-center font-extrabold text-lg">{{ average }}%</td>
+            <td class="px-3 py-2 text-center">
+              <span class="inline-block text-xs font-bold px-2 py-0.5 rounded
+                    {{ 'bg-green-100 text-green-800' if overall_grade in ['A1','B2','B3']
+                       else 'bg-blue-100 text-blue-800' if overall_grade in ['C4','C5','C6']
+                       else 'bg-amber-100 text-amber-800' if overall_grade in ['D7','E8']
+                       else 'bg-red-100 text-red-800' }}">
+                {{ overall_grade or '—' }}
+              </span>
+            </td>
+            <td class="px-3 py-2 text-xs font-semibold">{{ overall_remark or '' }}</td>
+          </tr>
+        </tfoot>
+      </table>
+
+    {% else %}
+      <div class="text-center py-10 border border-slate-200 rounded">
+        <p class="text-sm text-slate-500 italic">No grades entered for this term yet.</p>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- ---------- Attendance summary ---------- -->
+  <div class="py-6 border-t border-slate-200">
+    <h2 class="font-bold text-lg mb-3">Attendance</h2>
+    <div class="grid grid-cols-4 gap-3 text-sm">
+      <div class="border border-slate-200 rounded-lg p-3 text-center">
+        <p class="text-xs uppercase font-semibold text-green-700">Present</p>
+        <p class="mt-1 text-xl font-extrabold">{{ attendance.present }}</p>
+      </div>
+      <div class="border border-slate-200 rounded-lg p-3 text-center">
+        <p class="text-xs uppercase font-semibold text-red-700">Absent</p>
+        <p class="mt-1 text-xl font-extrabold">{{ attendance.absent }}</p>
+      </div>
+      <div class="border border-slate-200 rounded-lg p-3 text-center">
+        <p class="text-xs uppercase font-semibold text-amber-700">Late</p>
+        <p class="mt-1 text-xl font-extrabold">{{ attendance.late }}</p>
+      </div>
+      <div class="border border-slate-200 rounded-lg p-3 text-center">
+        <p class="text-xs uppercase font-semibold text-blue-700">Excused</p>
+        <p class="mt-1 text-xl font-extrabold">{{ attendance.excused }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- Grade scale reference ---------- -->
+  <div class="py-4 border-t border-slate-200">
+    <p class="text-xs uppercase tracking-wider font-bold text-slate-500 mb-2">Grading Scale</p>
+    <div class="grid grid-cols-3 gap-x-6 gap-y-1 text-xs text-slate-600">
+      <div><span class="font-bold">A1</span> 80–100 · Excellent</div>
+      <div><span class="font-bold">B2</span> 75–79 · Very Good</div>
+      <div><span class="font-bold">B3</span> 70–74 · Good</div>
+      <div><span class="font-bold">C4</span> 65–69 · Credit</div>
+      <div><span class="font-bold">C5</span> 60–64 · Credit</div>
+      <div><span class="font-bold">C6</span> 55–59 · Credit</div>
+      <div><span class="font-bold">D7</span> 50–54 · Pass</div>
+      <div><span class="font-bold">E8</span> 45–49 · Weak Pass</div>
+      <div><span class="font-bold">F9</span> 0–44 · Fail</div>
+    </div>
+  </div>
+
+  <!-- ---------- Remarks + signature ---------- -->
+  <div class="grid sm:grid-cols-2 gap-6 py-6 border-t border-slate-200">
+    <div>
+      <p class="text-xs uppercase tracking-wider font-bold text-slate-500 mb-2">Form Teacher's Remarks</p>
+      <p class="text-sm italic text-slate-500">
+        {% if average >= 75 %}
+          Excellent performance. Keep up the great work!
+        {% elif average >= 60 %}
+          Good effort. Continue to improve.
+        {% elif average >= 45 %}
+          Fair performance. More dedication needed.
+        {% else %}
+          Needs significant improvement. Please work harder.
+        {% endif %}
+      </p>
+      <div class="mt-8 pt-4 border-t border-dashed border-slate-300 text-xs text-slate-400">
+        Signature
+      </div>
+    </div>
+    <div>
+      <p class="text-xs uppercase tracking-wider font-bold text-slate-500 mb-2">Principal's Remarks</p>
+      <p class="text-sm italic text-slate-500">
+        {% if average >= 75 %}
+          Outstanding academic achievement this term.
+        {% elif average >= 60 %}
+          Solid academic standing. Well done.
+        {% elif average >= 45 %}
+          Satisfactory result. Aim higher next term.
+        {% else %}
+          Needs focused intervention.
+        {% endif %}
+      </p>
+      <div class="mt-8 pt-4 border-t border-dashed border-slate-300 text-xs text-slate-400">
+        Signature
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- Footer ---------- -->
+  <div class="pt-6 border-t border-slate-200 text-xs text-slate-400 flex items-center justify-between">
+    <p>Issued on {{ now.strftime('%B %d, %Y') }}</p>
+    <p>Generated by {{ platform_name }}</p>
+  </div>
+</div>
+
+</body>
+</html>

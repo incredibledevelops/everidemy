@@ -1,0 +1,83 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Settings{% endblock %}
+{% block breadcrumb %}Settings{% endblock %}
+
+{% block content %}
+
+<!-- =========================
+     HEALTH CHECK
+     ========================= -->
+<div class="bg-gradient-to-br from-brand-600 to-brand-800 text-white rounded-2xl p-6">
+  <h2 class="font-bold text-lg">Finish setting up your school</h2>
+  <p class="text-sm text-brand-100 mt-1">
+    Complete these steps to unlock the full power of Everidemy.
+  </p>
+
+  <div class="mt-6 grid sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+    {% set check_items = [
+      ('profile_complete',    'School profile',      'Motto, address, timezone',    'settings_profile'),
+      ('academic_set',        'Academic calendar',   'Term dates & year',           'settings_academic'),
+      ('grading_scale_set',   'Grading scale',       'A1–F9 bands',                 'settings_academic'),
+      ('paystack_configured', 'Paystack',            'For online fee payments',     'settings_integrations'),
+      ('notifications_on',    'Notifications',       'Email & SMS alerts',          'settings_notifications'),
+    ] %}
+    {% for key, title, desc, endpoint in check_items %}
+      <a href="{{ url_for('school_admin.' + endpoint) }}"
+         class="flex items-center gap-3 bg-white/10 hover:bg-white/15 rounded-xl p-4 transition">
+        <div class="w-8 h-8 rounded-full grid place-items-center shrink-0
+                    {{ 'bg-green-400 text-green-900' if checks.get(key) else 'bg-white/20 text-white' }}">
+          {% if checks.get(key) %}✓{% else %}•{% endif %}
+        </div>
+        <div class="min-w-0">
+          <p class="font-semibold">{{ title }}</p>
+          <p class="text-xs text-brand-100 truncate">{{ desc }}</p>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+</div>
+
+
+<!-- =========================
+     SETTINGS SECTIONS
+     ========================= -->
+<div class="grid sm:grid-cols-2 gap-4">
+  {% set icons = {
+    'profile':       '🏫',
+    'academic':      '📚',
+    'fees':          '💳',
+    'notifications': '🔔',
+    'team':          '👥',
+    'integrations':  '🔌',
+    'data':          '🔒',
+  } %}
+
+  {% for key, title, desc in sections %}
+    {% set endpoint_map = {
+      'profile':       'settings_profile',
+      'academic':      'settings_academic',
+      'fees':          'settings_fees',
+      'notifications': 'settings_notifications',
+      'team':          'settings_team',
+      'integrations':  'settings_integrations',
+      'data':          'settings_data',
+    } %}
+    <a href="{{ url_for('school_admin.' + endpoint_map[key]) }}"
+       class="group bg-white rounded-2xl border border-slate-100 p-6
+              hover:border-brand-400 hover:shadow-lg transition">
+      <div class="flex items-start gap-4">
+        <div class="w-12 h-12 rounded-xl bg-slate-50 group-hover:bg-brand-50
+                    grid place-items-center text-xl shrink-0">
+          {{ icons.get(key, '⚙️') }}
+        </div>
+        <div class="flex-1 min-w-0">
+          <h3 class="font-bold group-hover:text-brand-600">{{ title }}</h3>
+          <p class="text-sm text-slate-500 mt-1">{{ desc }}</p>
+        </div>
+        <span class="text-slate-300 group-hover:text-brand-500 transition shrink-0">→</span>
+      </div>
+    </a>
+  {% endfor %}
+</div>
+
+{% endblock %}

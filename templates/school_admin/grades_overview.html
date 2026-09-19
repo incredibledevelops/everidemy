@@ -1,0 +1,138 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Exams & Grades{% endblock %}
+{% block breadcrumb %}Exams & Grades{% endblock %}
+
+{% block content %}
+
+<!-- =========================================================
+     HEADER: term + year + stats
+     ========================================================= -->
+<div class="bg-white rounded-2xl border border-slate-100 p-5">
+  <form method="GET" class="grid sm:grid-cols-4 gap-3 items-end">
+    <div>
+      <label class="text-xs uppercase font-semibold text-slate-500">Term</label>
+      <select name="term" onchange="this.form.submit()"
+              class="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200
+                     focus:border-brand-500 outline-none bg-white">
+        {% for key, label in terms %}
+          <option value="{{ key }}" {{ 'selected' if term == key }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="text-xs uppercase font-semibold text-slate-500">Academic year</label>
+      <input type="text" name="academic_year" value="{{ academic_year }}"
+             onchange="this.form.submit()"
+             class="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200
+                    focus:border-brand-500 outline-none">
+    </div>
+    <div class="sm:col-span-2 flex gap-3 justify-end">
+      <a href="{{ url_for('school_admin.grades_entry', term=term, academic_year=academic_year) }}"
+         class="inline-flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white
+                text-sm font-semibold px-4 py-2.5 rounded-lg">
+        + Enter grades
+      </a>
+    </div>
+  </form>
+</div>
+
+<!-- =========================================================
+     STATS
+     ========================================================= -->
+<div class="grid grid-cols-3 gap-4">
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Grades entered</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ stats.total_grades }}</p>
+    <p class="mt-1 text-xs text-slate-500">This term</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Classes</p>
+    <p class="mt-2 text-3xl font-extrabold text-brand-600">{{ stats.classes }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Subjects</p>
+    <p class="mt-2 text-3xl font-extrabold text-amber-600">{{ stats.subjects }}</p>
+  </div>
+</div>
+
+<!-- =========================================================
+     MATRIX
+     ========================================================= -->
+{% if matrix %}
+  {% for row in matrix %}
+    <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+      <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+        <div>
+          <h2 class="font-bold">{{ row.klass.name }}</h2>
+          <p class="text-xs text-slate-500 mt-0.5">
+            {{ row.student_count }} student{{ 's' if row.student_count != 1 }}
+            {% if row.klass.teacher_id %} · Form teacher: —{% endif %}
+          </p>
+        </div>
+      </div>
+
+      {% if row.cells %}
+        <div class="divide-y divide-slate-100">
+          {% for cell in row.cells %}
+            <div class="p-4 flex items-center gap-4">
+              <div class="flex-1 min-w-0">
+                <p class="font-semibold text-sm truncate">{{ cell.subject.name }}</p>
+                <p class="text-xs text-slate-500">
+                  {% if cell.subject.code %}{{ cell.subject.code }} · {% endif %}
+                  CA + Exam · max 100
+                </p>
+              </div>
+
+              <!-- Progress bar -->
+              <div class="hidden sm:block w-32">
+                <div class="h-2 rounded-full bg-slate-100 overflow-hidden">
+                  <div class="h-full rounded-full transition-all
+                              {{ 'bg-green-500' if cell.complete
+                                 else 'bg-amber-500' if cell.pct >= 50
+                                 else 'bg-red-400' }}"
+                       style="width: {{ cell.pct }}%"></div>
+                </div>
+                <p class="mt-1 text-[10px] text-slate-500 text-right">
+                  {{ cell.entered }}/{{ cell.total }}
+                </p>
+              </div>
+
+              <!-- Actions -->
+              <div class="shrink-0">
+                <a href="{{ url_for('school_admin.grades_entry',
+                                    class_id=row.klass._id,
+                                    subject_id=cell.subject._id,
+                                    term=term, academic_year=academic_year) }}"
+                   class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-lg
+                          {{ 'bg-green-50 text-green-700 hover:bg-green-100' if cell.complete
+                             else 'bg-brand-50 text-brand-700 hover:bg-brand-100' }}">
+                  {{ '✓ Review' if cell.complete else 'Enter →' }}
+                </a>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="px-5 py-10 text-center text-slate-500 text-sm">
+          No subjects assigned to this class yet.
+          <a href="{{ url_for('school_admin.subjects_list') }}"
+             class="text-brand-600 font-semibold hover:underline">Assign subjects →</a>
+        </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="bg-white rounded-2xl border border-slate-100 p-16 text-center">
+    <div class="w-16 h-16 mx-auto rounded-2xl bg-brand-50 grid place-items-center text-brand-600 text-2xl">
+      📝
+    </div>
+    <p class="mt-4 font-semibold text-slate-700">No classes yet</p>
+    <p class="mt-1 text-sm text-slate-500">Create a class and assign subjects to start entering grades.</p>
+    <a href="{{ url_for('school_admin.class_new') }}"
+       class="mt-4 inline-block px-4 py-2 text-sm font-semibold rounded-lg bg-brand-600 hover:bg-brand-700 text-white">
+      + Create class
+    </a>
+  </div>
+{% endif %}
+
+{% endblock %}

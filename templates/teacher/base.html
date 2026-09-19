@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% from "macros/icons.html" import icon %}
+{% block body %}
+
+<div class="flex min-h-screen bg-slate-50">
+
+  <div id="drawer-overlay"
+       onclick="closeDrawer()"
+       class="fixed inset-0 z-30 bg-ink-900/60 backdrop-blur-sm hidden lg:hidden"></div>
+
+  <aside id="sidebar"
+         class="fixed lg:sticky top-0 inset-y-0 left-0 z-40 w-72 bg-white border-r border-slate-100
+                flex flex-col -translate-x-full lg:translate-x-0 transition-transform h-screen">
+
+    <div class="h-16 flex items-center px-5 border-b border-slate-100 shrink-0 gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700
+                  grid place-items-center text-white font-extrabold text-sm shrink-0">
+        {{ g.school.name[:1]|upper if g.school else 'T' }}
+      </div>
+      <div class="min-w-0 flex-1">
+        <p class="font-bold text-sm truncate">{{ g.school.name if g.school else 'School' }}</p>
+        <p class="text-[10px] text-slate-500 uppercase tracking-wide">Teacher</p>
+      </div>
+      <button onclick="closeDrawer()" class="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-500">
+        {{ icon('x') }}
+      </button>
+    </div>
+
+    {% set nav = [
+      ('teacher.dashboard',       'grid',    'Dashboard'),
+      ('teacher.classes_list',    'building','My Classes'),
+      ('teacher.attendance_page', 'check',   'Attendance'),
+      ('teacher.gradebook',       'pencil',  'Gradebook'),
+      ('teacher.messages_page',   'chat',    'Messages'),
+    ] %}
+
+    <nav class="flex-1 px-3 py-4 overflow-y-auto space-y-1">
+      {% for endpoint, icon_name, label in nav %}
+        {% set is_active = request.endpoint == endpoint %}
+        <a href="{{ url_for(endpoint) }}"
+           class="group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition
+                  {{ 'bg-brand-50 text-brand-700 font-semibold' if is_active
+                     else 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' }}">
+          {% if is_active %}
+            <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-brand-500"></span>
+          {% endif %}
+          <span class="shrink-0 w-5 h-5 grid place-items-center
+                       {{ 'text-brand-600' if is_active else 'text-slate-400 group-hover:text-slate-600' }}">
+            {{ icon(icon_name) }}
+          </span>
+          <span class="truncate">{{ label }}</span>
+        </a>
+      {% endfor %}
+    </nav>
+
+    <div class="p-3 border-t border-slate-100 shrink-0">
+      <div class="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-slate-50">
+        <div class="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-brand-700
+                    grid place-items-center text-sm font-bold text-white shrink-0">
+          {{ g.user.name[:2]|upper if g.user else 'T' }}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm font-semibold truncate">{{ g.user.name if g.user else '' }}</p>
+          <p class="text-xs text-slate-500 truncate">Teacher</p>
+        </div>
+      </div>
+      <a href="{{ url_for('auth.logout') }}"
+         class="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-slate-600 hover:bg-slate-50 text-sm">
+        <span>{{ icon('logout') }}</span> Log out
+      </a>
+    </div>
+  </aside>
+
+  <div class="flex-1 min-w-0 flex flex-col">
+    <header class="sticky top-0 z-20 h-16 bg-white/90 backdrop-blur border-b border-slate-100
+                   flex items-center px-4 sm:px-6 gap-3 shrink-0">
+      <button onclick="openDrawer()" class="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-700">
+        {{ icon('menu') }}
+      </button>
+      <div class="min-w-0 flex-1">
+        <h1 class="font-bold text-lg truncate">{% block page_title %}Teacher{% endblock %}</h1>
+        <p class="hidden sm:flex items-center gap-1.5 text-xs text-slate-500">
+          <span>{{ g.school.name if g.school else '' }}</span>
+          <span class="text-slate-300">/</span>
+          <span class="text-slate-700 font-semibold">{% block breadcrumb %}Overview{% endblock %}</span>
+        </p>
+      </div>
+      <div class="relative" data-dropdown="notifications">
+        <button onclick="toggleDropdown('notifications')" class="relative p-2 rounded-lg hover:bg-slate-100 text-slate-700">
+          {{ icon('bell') }}
+        </button>
+        <div data-dropdown-menu="notifications"
+             class="hidden absolute right-0 mt-2 w-72 rounded-2xl bg-white border border-slate-100 shadow-2xl overflow-hidden z-50">
+          <div class="px-4 py-3 border-b border-slate-100 font-bold text-sm">Notifications</div>
+          <div class="px-4 py-8 text-center text-sm text-slate-500">You're all caught up 🎉</div>
+        </div>
+      </div>
+    </header>
+
+    <main class="flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="border-t border-slate-100 px-4 sm:px-6 py-4 text-xs text-slate-500 text-center bg-white">
+      © 2025 {{ platform_name }} · Teacher workspace
+    </footer>
+  </div>
+</div>
+
+<script>
+function openDrawer() {
+  document.getElementById('sidebar').classList.remove('-translate-x-full');
+  document.getElementById('drawer-overlay').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+function closeDrawer() {
+  document.getElementById('sidebar').classList.add('-translate-x-full');
+  document.getElementById('drawer-overlay').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+function toggleDropdown(id) {
+  const menu = document.querySelector(`[data-dropdown-menu="${id}"]`);
+  const isOpen = !menu.classList.contains('hidden');
+  document.querySelectorAll('[data-dropdown-menu]').forEach(m => m.classList.add('hidden'));
+  if (!isOpen) menu.classList.remove('hidden');
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('[data-dropdown]')) {
+    document.querySelectorAll('[data-dropdown-menu]').forEach(m => m.classList.add('hidden'));
+  }
+});
+window.addEventListener('resize', () => { if (window.innerWidth >= 1024) closeDrawer(); });
+</script>
+
+{% block scripts %}{% endblock %}
+{% endblock %}

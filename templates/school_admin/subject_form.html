@@ -1,0 +1,118 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}{{ 'New subject' if mode == 'create' else 'Edit ' ~ subject.name }}{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.subjects_list') }}" class="hover:text-brand-600">Subjects</a>
+  / {{ 'New' if mode == 'create' else 'Edit' }}
+{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('school_admin.subjects_list') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to subjects
+</a>
+
+<div class="max-w-2xl mx-auto bg-white rounded-2xl border border-slate-100 p-6 sm:p-8">
+  <div class="flex items-start gap-3">
+    <div class="w-11 h-11 rounded-xl bg-brand-50 grid place-items-center text-brand-600 text-lg">📚</div>
+    <div>
+      <h2 class="font-bold text-xl">{{ 'Add a subject' if mode == 'create' else 'Edit subject' }}</h2>
+      <p class="mt-1 text-sm text-slate-500">
+        {{ 'Define a subject and assign it to classes.' if mode == 'create'
+           else 'Update subject details.' }}
+      </p>
+    </div>
+  </div>
+
+  <form method="POST" class="mt-8 space-y-5">
+    {% if mode == 'edit' %}
+      <input type="hidden" name="_id" value="{{ subject._id }}">
+    {% endif %}
+
+    <div class="grid sm:grid-cols-3 gap-4">
+      <div class="sm:col-span-2">
+        <label class="text-sm font-semibold text-slate-700">Subject name <span class="text-red-500">*</span></label>
+        <input type="text" name="name" value="{{ form.get('name','') }}" required
+               class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                      focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+               placeholder="Mathematics">
+      </div>
+      <div>
+        <label class="text-sm font-semibold text-slate-700">Code</label>
+        <input type="text" name="code" value="{{ form.get('code','') }}" maxlength="8"
+               class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                      focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none
+                      font-mono uppercase"
+               placeholder="MTH">
+      </div>
+    </div>
+
+    <div>
+      <label class="text-sm font-semibold text-slate-700">Subject type</label>
+      <div class="mt-2 flex gap-3">
+        {% set is_core = form.get('is_core', True) %}
+        <label class="flex-1 cursor-pointer">
+          <input type="radio" name="is_core" value="on" class="peer sr-only" {{ 'checked' if is_core }}>
+          <div class="text-center py-3 rounded-xl border border-slate-200
+                      peer-checked:border-brand-500 peer-checked:bg-brand-50 peer-checked:text-brand-700
+                      text-slate-600 font-semibold text-sm transition">
+            Core
+          </div>
+        </label>
+        <label class="flex-1 cursor-pointer">
+          <input type="radio" name="is_core" value="" class="peer sr-only" {{ 'checked' if not is_core }}>
+          <div class="text-center py-3 rounded-xl border border-slate-200
+                      peer-checked:border-amber-500 peer-checked:bg-amber-50 peer-checked:text-amber-700
+                      text-slate-600 font-semibold text-sm transition">
+            Elective
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <div>
+      <label class="text-sm font-semibold text-slate-700">Assign to classes</label>
+      <p class="mt-1 text-xs text-slate-500">Select all classes that teach this subject.</p>
+      {% if class_list %}
+        <div class="mt-3 grid sm:grid-cols-2 gap-2 max-h-56 overflow-y-auto p-1">
+          {% set selected = form.get('class_ids', []) %}
+          {% for c in class_list %}
+            <label class="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200
+                          hover:bg-slate-50 cursor-pointer">
+              <input type="checkbox" name="class_ids" value="{{ c.id }}"
+                     class="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                     {{ 'checked' if c.id in selected }}>
+              <span class="text-sm">{{ c.name }}</span>
+            </label>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="mt-2 text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+          No classes exist yet.
+          <a href="{{ url_for('school_admin.class_new') }}" class="font-semibold underline">Create a class first →</a>
+        </p>
+      {% endif %}
+    </div>
+
+    <div>
+      <label class="text-sm font-semibold text-slate-700">Status</label>
+      <select name="status"
+              class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                     focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none bg-white">
+        {% set st = form.get('status','active') %}
+        <option value="active"   {{ 'selected' if st == 'active' }}>Active</option>
+        <option value="archived" {{ 'selected' if st == 'archived' }}>Archived</option>
+      </select>
+    </div>
+
+    <div class="flex gap-3 pt-4 border-t border-slate-100">
+      <button class="px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold">
+        {{ 'Create subject' if mode == 'create' else 'Save changes' }}
+      </button>
+      <a href="{{ url_for('school_admin.subjects_list') }}"
+         class="px-5 py-3 rounded-xl border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
+{% endblock %}

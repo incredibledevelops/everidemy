@@ -1,0 +1,74 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Fee Settings{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.settings_page') }}" class="hover:text-brand-600">Settings</a>
+  / Fees
+{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('school_admin.settings_page') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to settings
+</a>
+
+<form method="POST" class="max-w-2xl space-y-6">
+
+  <div class="bg-white rounded-2xl border border-slate-100 p-6 sm:p-8 space-y-5">
+    <div>
+      <h2 class="font-bold text-lg">Invoicing</h2>
+      <p class="text-sm text-slate-500 mt-0.5">How invoice numbers are formatted.</p>
+    </div>
+
+    <div class="grid sm:grid-cols-2 gap-4">
+      <div>
+        <label class="text-sm font-semibold text-slate-700">Invoice prefix</label>
+        <input type="text" name="invoice_prefix"
+               value="{{ settings.invoice_prefix }}"
+               maxlength="8"
+               class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                      focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none font-mono uppercase">
+        <p class="mt-1 text-xs text-slate-500">e.g. INV → INV-2025-0001</p>
+      </div>
+
+      <div class="flex items-end">
+        <label class="flex items-center gap-3 py-3">
+          <input type="checkbox" name="invoice_auto_number"
+                 {{ 'checked' if settings.invoice_auto_number }}
+                 class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+          <span class="text-sm text-slate-700">Auto-number invoices</span>
+        </label>
+      </div>
+    </div>
+
+    <div>
+      <label class="text-sm font-semibold text-slate-700">Payment due (days)</label>
+      <input type="number" name="fee_due_days"
+             value="{{ settings.fee_due_days }}"
+             min="0" max="365"
+             class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                    focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none">
+      <p class="mt-1 text-xs text-slate-500">
+        Number of days after invoice creation that payment is due. Used as the default due date.
+      </p>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-100 p-6 flex flex-wrap gap-3">
+    {% if current_user.role == 'school_admin' %}
+      <button class="px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold">
+        Save fee settings
+      </button>
+      <a href="{{ url_for('school_admin.settings_page') }}"
+         class="px-5 py-3 rounded-xl border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50">
+        Cancel
+      </a>
+    {% else %}
+      <div class="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800 w-full">
+        Only school admins can modify fee settings.
+      </div>
+    {% endif %}
+  </div>
+</form>
+
+{% endblock %}

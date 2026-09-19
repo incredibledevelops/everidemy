@@ -1,0 +1,167 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Team & Roles{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.settings_page') }}" class="hover:text-brand-600">Settings</a>
+  / Team
+{% endblock %}
+
+{% block topbar_action %}
+  <a href="{{ url_for('school_admin.staff_new') }}"
+     class="hidden sm:inline-flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700
+            text-white text-sm font-semibold px-3.5 py-2 rounded-lg transition shadow-sm">
+    + Invite staff
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('school_admin.settings_page') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to settings
+</a>
+
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Total team</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ team|length }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Admins</p>
+    <p class="mt-2 text-3xl font-extrabold text-purple-600">
+      {{ team | selectattr('role', 'equalto', 'school_admin') | list | length }}
+    </p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Teachers</p>
+    <p class="mt-2 text-3xl font-extrabold text-brand-600">
+      {{ team | selectattr('role', 'equalto', 'teacher') | list | length }}
+    </p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Accountants</p>
+    <p class="mt-2 text-3xl font-extrabold text-emerald-600">
+      {{ team | selectattr('role', 'equalto', 'accountant') | list | length }}
+    </p>
+  </div>
+</div>
+
+<div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+  <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+    <div>
+      <h2 class="font-bold">Team members</h2>
+      <p class="text-xs text-slate-500 mt-0.5">Everyone who can log in to your school.</p>
+    </div>
+  </div>
+
+  {% if team %}
+    <div class="divide-y divide-slate-100">
+      {% for u in team %}
+        <div class="p-4 flex flex-wrap items-center gap-4">
+          <div class="w-10 h-10 rounded-full bg-gradient-to-br from-brand-500 to-brand-700
+                      grid place-items-center text-white font-bold text-sm shrink-0">
+            {{ u.name[:1]|upper }}
+          </div>
+
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold truncate">{{ u.name }}</p>
+            <p class="text-xs text-slate-500 truncate">{{ u.email }}</p>
+            {% if u._staff %}
+              <p class="text-xs text-slate-400 truncate">
+                {{ u._staff.staff_no }}{% if u._staff.designation %} · {{ u._staff.designation }}{% endif %}
+              </p>
+            {% endif %}
+          </div>
+
+          {% set role_styles = {
+            'school_admin': 'bg-purple-50 text-purple-700',
+            'teacher':      'bg-brand-50 text-brand-700',
+            'accountant':   'bg-emerald-50 text-emerald-700',
+          } %}
+          <span class="text-xs font-semibold px-2 py-1 rounded {{ role_styles.get(u.role, 'bg-slate-100 text-slate-700') }}">
+            {{ u.role|replace('_',' ')|title }}
+          </span>
+
+          {% if u.role != 'school_admin' and current_user.role == 'school_admin' %}
+            <form method="POST"
+                  action="{{ url_for('school_admin.settings_team_update_role', user_id=u._id) }}"
+                  class="flex gap-2 shrink-0">
+              <select name="role"
+                      class="px-2 py-1.5 text-xs rounded-lg border border-slate-200
+                             focus:border-brand-500 outline-none bg-white">
+                <option value="teacher"    {{ 'selected' if u.role == 'teacher' }}>Teacher</option>
+                <option value="accountant" {{ 'selected' if u.role == 'accountant' }}>Accountant</option>
+                <option value="school_admin" {{ 'selected' if u.role == 'school_admin' }}>Admin</option>
+              </select>
+              <button class="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800">
+                Update
+              </button>
+            </form>
+          {% endif %}
+
+          {% if u._staff %}
+            <a href="{{ url_for('school_admin.staff_detail', staff_id=u._staff._id) }}"
+               class="text-xs font-semibold text-brand-600 hover:underline shrink-0">
+              View profile →
+            </a>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="p-16 text-center">
+      <div class="w-16 h-16 mx-auto rounded-2xl bg-brand-50 grid place-items-center text-brand-600 text-2xl">
+        👥
+      </div>
+      <p class="mt-4 font-semibold text-slate-700">No team members yet</p>
+      <p class="mt-1 text-sm text-slate-500">Invite teachers and staff to collaborate.</p>
+      <a href="{{ url_for('school_admin.staff_new') }}"
+         class="mt-4 inline-block px-4 py-2 text-sm font-semibold rounded-lg bg-brand-600 hover:bg-brand-700 text-white">
+        + Invite staff
+      </a>
+    </div>
+  {% endif %}
+</div>
+
+<div class="bg-slate-50 border border-slate-200 rounded-2xl p-6">
+  <h3 class="font-bold text-sm">Permission matrix</h3>
+  <div class="mt-4 overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="text-slate-500 uppercase text-xs">
+        <tr>
+          <th class="text-left py-2 font-semibold">Capability</th>
+          <th class="text-center py-2 font-semibold">Admin</th>
+          <th class="text-center py-2 font-semibold">Teacher</th>
+          <th class="text-center py-2 font-semibold">Accountant</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-200">
+        {% set perms = [
+          ('Manage students',         [1, 1, 0]),
+          ('Manage staff & roles',    [1, 0, 0]),
+          ('Mark attendance',         [1, 1, 0]),
+          ('Enter grades',            [1, 1, 0]),
+          ('Manage fees & invoices',  [1, 0, 1]),
+          ('View reports',            [1, 1, 1]),
+          ('Post announcements',      [1, 1, 0]),
+          ('Modify settings',         [1, 0, 0]),
+        ] %}
+        {% for name, flags in perms %}
+          <tr>
+            <td class="py-2 text-slate-700">{{ name }}</td>
+            {% for f in flags %}
+              <td class="py-2 text-center">
+                {% if f %}
+                  <span class="text-green-600 font-bold">✓</span>
+                {% else %}
+                  <span class="text-slate-300">—</span>
+                {% endif %}
+              </td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

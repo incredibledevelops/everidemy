@@ -1,0 +1,167 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Finance report{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.reports_page') }}" class="hover:text-brand-600">Reports</a>
+  / Finance
+{% endblock %}
+
+{% block topbar_action %}
+  <a href="{{ url_for('school_admin.report_finance_csv') }}"
+     class="hidden sm:inline-flex items-center gap-1.5 bg-white border border-slate-200
+            hover:border-slate-300 text-slate-700 text-sm font-semibold px-3.5 py-2 rounded-lg">
+    ⬇️ Download CSV
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('school_admin.reports_page') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to reports
+</a>
+
+<!-- Summary -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Total due</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ format_money(summary.total_due) }}</p>
+    <p class="mt-1 text-xs text-slate-500">{{ summary.invoice_count }} invoices</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Collected</p>
+    <p class="mt-2 text-3xl font-extrabold text-green-600">{{ format_money(summary.total_paid) }}</p>
+    <p class="mt-1 text-xs text-green-600 font-semibold">{{ summary.collection_pct }}%</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Outstanding</p>
+    <p class="mt-2 text-3xl font-extrabold text-red-600">{{ format_money(summary.total_balance) }}</p>
+    <p class="mt-1 text-xs text-slate-500">Unpaid balance</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Collection rate</p>
+    <div class="mt-2 flex items-end gap-2">
+      <p class="text-3xl font-extrabold text-brand-600">{{ summary.collection_pct }}%</p>
+    </div>
+    <div class="mt-2 h-2 rounded-full bg-slate-100 overflow-hidden">
+      <div class="h-full rounded-full bg-brand-500 transition-all"
+           style="width: {{ summary.collection_pct }}%"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 12-month revenue trend -->
+<div class="bg-white rounded-2xl border border-slate-100 p-6">
+  <h2 class="font-bold">Monthly collections — last 12 months</h2>
+  {% set max_total = trend | map(attribute='total') | max %}
+  {% set max_total = max_total if max_total > 0 else 1 %}
+
+  <div class="mt-6 flex items-end gap-1.5 h-56">
+    {% for t in trend %}
+      <div class="flex-1 flex flex-col items-center gap-2 group">
+        <div class="relative w-full flex items-end justify-center" style="height: 100%;">
+          <div class="w-full rounded-t transition-all
+                      {{ 'bg-emerald-500' if t.total > 0 else 'bg-slate-100' }}"
+               style="height: {{ (t.total / max_total * 100) if t.total else 3 }}%">
+          </div>
+          <span class="absolute -top-6 text-xs font-semibold text-slate-700 opacity-0 group-hover:opacity-100 transition whitespace-nowrap">
+            {{ format_money(t.total) }}
+          </span>
+        </div>
+        <span class="text-[10px] text-slate-500 whitespace-nowrap">
+          {{ t.label.split(' ')[0] }}
+        </span>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Two columns: channel + status -->
+<div class="grid lg:grid-cols-2 gap-6">
+
+  <!-- Payment channels -->
+  <div class="bg-white rounded-2xl border border-slate-100 p-6">
+    <h2 class="font-bold">Payment channels</h2>
+    {% if summary.by_channel %}
+      <div class="mt-4 space-y-3">
+        {% set total_collected = summary.total_paid if summary.total_paid else 1 %}
+        {% for c in summary.by_channel %}
+          {% set pct = (c.total / total_collected * 100)|round|int %}
+          {% set colors = {
+            'cash':     'bg-slate-500',
+            'transfer': 'bg-blue-500',
+            'paystack': 'bg-emerald-500',
+            'cheque':   'bg-amber-500',
+          } %}
+          <div>
+            <div class="flex items-center justify-between text-sm mb-1.5">
+              <span class="font-semibold capitalize">{{ c.channel }}</span>
+              <span class="text-slate-500">
+                {{ format_money(c.total) }} · {{ c.count }} payments
+              </span>
+            </div>
+            <div class="h-2 rounded-full bg-slate-100 overflow-hidden">
+              <div class="h-full rounded-full {{ colors.get(c.channel, 'bg-slate-400') }}"
+                   style="width: {{ pct }}%"></div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="mt-4 text-sm text-slate-500 italic">No payments recorded yet.</p>
+    {% endif %}
+  </div>
+
+  <!-- Invoice statuses -->
+  <div class="bg-white rounded-2xl border border-slate-100 p-6">
+    <h2 class="font-bold">Invoice statuses</h2>
+    {% if summary.statuses %}
+      <div class="mt-4 space-y-3">
+        {% set status_styles = {
+          'paid':     ('bg-green-500', 'text-green-700'),
+          'partial':  ('bg-amber-500', 'text-amber-700'),
+          'unpaid':   ('bg-red-500',   'text-red-700'),
+          'waived':   ('bg-slate-400', 'text-slate-600'),
+        } %}
+        {% set total_invoices = summary.invoice_count if summary.invoice_count else 1 %}
+        {% for status, count in summary.statuses.items() %}
+          {% set style = status_styles.get(status, ('bg-slate-300', 'text-slate-600')) %}
+          <div class="flex items-center gap-3">
+            <span class="w-2.5 h-2.5 rounded-full {{ style[0] }}"></span>
+            <span class="flex-1 font-semibold capitalize">{{ status }}</span>
+            <span class="text-sm {{ style[1] }} font-semibold">{{ count }}</span>
+            <span class="text-xs text-slate-400 w-12 text-right">
+              {{ (count / total_invoices * 100)|round|int }}%
+            </span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="mt-4 text-sm text-slate-500 italic">No invoices yet.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Outstanding by class -->
+{% if outstanding %}
+<div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+  <div class="p-5 border-b border-slate-100">
+    <h2 class="font-bold">Outstanding by class</h2>
+    <p class="text-xs text-slate-500 mt-0.5">Classes with unpaid balances, ranked</p>
+  </div>
+  <div class="divide-y divide-slate-100">
+    {% for o in outstanding %}
+      <div class="p-4 flex items-center gap-4">
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold truncate">{{ o.class_name }}</p>
+          <p class="text-xs text-slate-500">{{ o.count }} unpaid invoice(s)</p>
+        </div>
+        <span class="font-bold text-red-600 text-lg whitespace-nowrap">
+          {{ format_money(o.balance) }}
+        </span>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

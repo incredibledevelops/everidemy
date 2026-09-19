@@ -1,0 +1,113 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Notification Settings{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.settings_page') }}" class="hover:text-brand-600">Settings</a>
+  / Notifications
+{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('school_admin.settings_page') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to settings
+</a>
+
+<form method="POST" class="max-w-3xl space-y-6">
+
+  <!-- Email -->
+  <div class="bg-white rounded-2xl border border-slate-100 p-6 sm:p-8">
+    <div class="flex items-start gap-3">
+      <div class="w-10 h-10 rounded-xl bg-brand-50 grid place-items-center text-brand-600 shrink-0">✉️</div>
+      <div>
+        <h2 class="font-bold">Email notifications</h2>
+        <p class="text-sm text-slate-500 mt-0.5">
+          Send parents and staff automated emails when events happen.
+        </p>
+      </div>
+    </div>
+
+    <div class="mt-6 space-y-3">
+      {% set email_items = [
+        ('notify_email_attendance',    'Daily attendance summary',   'Parents get a note if their child is absent or late.'),
+        ('notify_email_fees',          'Fee invoices & receipts',    'Send invoices on generation and receipts after payment.'),
+        ('notify_email_grades',        'Grade & report cards',       'Email reports when a term closes.'),
+        ('notify_email_announcements', 'Announcements',              'Broadcast school notices to parents and staff.'),
+      ] %}
+      {% for key, label, desc in email_items %}
+        <label class="flex items-start gap-3 p-4 rounded-xl border border-slate-200
+                      hover:border-brand-400 cursor-pointer transition">
+          <input type="checkbox" name="{{ key }}"
+                 {{ 'checked' if settings.get(key) }}
+                 class="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold text-sm">{{ label }}</p>
+            <p class="text-xs text-slate-500 mt-0.5">{{ desc }}</p>
+          </div>
+        </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- SMS -->
+  <div class="bg-white rounded-2xl border border-slate-100 p-6 sm:p-8">
+    <div class="flex items-start gap-3">
+      <div class="w-10 h-10 rounded-xl bg-purple-50 grid place-items-center text-purple-600 shrink-0">📱</div>
+      <div>
+        <h2 class="font-bold">SMS notifications</h2>
+        <p class="text-sm text-slate-500 mt-0.5">
+          Requires SMS provider configuration in Integrations.
+        </p>
+      </div>
+    </div>
+
+    <div class="mt-6 space-y-3">
+      {% set sms_items = [
+        ('notify_sms_attendance', 'Attendance alerts', 'Text parents within minutes of an absence.'),
+        ('notify_sms_fees',       'Fee reminders',     'Send reminders as due dates approach.'),
+      ] %}
+      {% for key, label, desc in sms_items %}
+        <label class="flex items-start gap-3 p-4 rounded-xl border border-slate-200
+                      hover:border-brand-400 cursor-pointer transition">
+          <input type="checkbox" name="{{ key }}"
+                 {{ 'checked' if settings.get(key) }}
+                 class="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold text-sm">{{ label }}</p>
+            <p class="text-xs text-slate-500 mt-0.5">{{ desc }}</p>
+          </div>
+        </label>
+      {% endfor %}
+    </div>
+
+    <div class="mt-6">
+      <label class="text-sm font-semibold text-slate-700">SMS sender ID</label>
+      <input type="text" name="sms_sender_id"
+             value="{{ settings.sms_sender_id or '' }}"
+             maxlength="11"
+             class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                    focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none font-mono uppercase"
+             placeholder="GREENHILL">
+      <p class="mt-1 text-xs text-slate-500">
+        Max 11 characters. Must be pre-approved by your SMS provider.
+      </p>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-100 p-6 flex flex-wrap gap-3">
+    {% if current_user.role == 'school_admin' %}
+      <button class="px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold">
+        Save notification preferences
+      </button>
+      <a href="{{ url_for('school_admin.settings_page') }}"
+         class="px-5 py-3 rounded-xl border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50">
+        Cancel
+      </a>
+    {% else %}
+      <div class="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800 w-full">
+        Only school admins can modify notification preferences.
+      </div>
+    {% endif %}
+  </div>
+</form>
+
+{% endblock %}

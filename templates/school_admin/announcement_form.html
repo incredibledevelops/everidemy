@@ -1,0 +1,94 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}{{ 'New announcement' if mode == 'create' else 'Edit announcement' }}{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.announcements_page') }}" class="hover:text-brand-600">Announcements</a>
+  / {{ 'New' if mode == 'create' else 'Edit' }}
+{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('school_admin.announcements_page') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to announcements
+</a>
+
+<div class="max-w-2xl mx-auto bg-white rounded-2xl border border-slate-100 p-6 sm:p-8">
+
+  <div class="flex items-start gap-3">
+    <div class="w-11 h-11 rounded-xl bg-brand-50 grid place-items-center text-brand-600 text-lg">📢</div>
+    <div>
+      <h2 class="font-bold text-xl">
+        {{ 'Publish a new announcement' if mode == 'create' else 'Edit announcement' }}
+      </h2>
+      <p class="mt-1 text-sm text-slate-500">
+        {{ 'Send a notice to students, parents, staff, or everyone.' if mode == 'create'
+           else 'Update the content and audience.' }}
+      </p>
+    </div>
+  </div>
+
+  <form method="POST" class="mt-8 space-y-5">
+    {% if mode == 'edit' %}
+      <input type="hidden" name="_id" value="{{ announcement._id }}">
+    {% endif %}
+
+    <div>
+      <label class="text-sm font-semibold text-slate-700">Title <span class="text-red-500">*</span></label>
+      <input type="text" name="title" value="{{ form.get('title','') }}" required
+             class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                    focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+             placeholder="PTA Meeting — Friday, Feb 21">
+    </div>
+
+    <div>
+      <label class="text-sm font-semibold text-slate-700">Message <span class="text-red-500">*</span></label>
+      <textarea name="body" rows="8" required
+                class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                       focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none
+                       font-mono text-sm"
+                placeholder="Type your announcement here…">{{ form.get('body','') }}</textarea>
+      <p class="mt-1 text-xs text-slate-500">Line breaks are preserved. Plain text — links auto-detected on save.</p>
+    </div>
+
+    <div class="grid sm:grid-cols-3 gap-4">
+      <div>
+        <label class="text-sm font-semibold text-slate-700">Audience</label>
+        <select name="audience"
+                class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                       focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none bg-white">
+          {% for key, label in audiences %}
+            <option value="{{ key }}" {{ 'selected' if form.get('audience') == key }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="text-sm font-semibold text-slate-700">Priority</label>
+        <select name="priority"
+                class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                       focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none bg-white">
+          {% for key, label in priorities %}
+            <option value="{{ key }}" {{ 'selected' if form.get('priority') == key }}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="text-sm font-semibold text-slate-700">Expires (optional)</label>
+        <input type="date" name="expires_at" value="{{ form.get('expires_at','') }}"
+               class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                      focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none">
+      </div>
+    </div>
+
+    <div class="flex gap-3 pt-6 border-t border-slate-100">
+      <button class="px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold">
+        {{ 'Publish' if mode == 'create' else 'Save changes' }}
+      </button>
+      <a href="{{ url_for('school_admin.announcements_page') }}"
+         class="px-5 py-3 rounded-xl border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
+{% endblock %}

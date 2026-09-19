@@ -1,0 +1,150 @@
+{% extends "teacher/base.html" %}
+{% block page_title %}Gradebook{% endblock %}
+{% block breadcrumb %}Gradebook{% endblock %}
+
+{% block content %}
+
+<div class="bg-white rounded-2xl border border-slate-100 p-5">
+  <form method="GET" class="grid sm:grid-cols-3 gap-3">
+    <div>
+      <label class="text-xs uppercase font-semibold text-slate-500">Class</label>
+      <select name="class_id" onchange="this.form.submit()"
+              class="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200
+                     focus:border-brand-500 outline-none bg-white">
+        {% for c in class_list %}
+          <option value="{{ c._id }}" {{ 'selected' if selected_class_id == c._id|string }}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="text-xs uppercase font-semibold text-slate-500">Subject</label>
+      <select name="subject_id" onchange="this.form.submit()"
+              class="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200
+                     focus:border-brand-500 outline-none bg-white">
+        {% for s in subject_list %}
+          <option value="{{ s._id }}" {{ 'selected' if selected_subject_id == s._id|string }}>{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="text-xs uppercase font-semibold text-slate-500">Term</label>
+      <select name="term" onchange="this.form.submit()"
+              class="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200
+                     focus:border-brand-500 outline-none bg-white">
+        <option value="first"  {{ 'selected' if term == 'first' }}>First Term</option>
+        <option value="second" {{ 'selected' if term == 'second' }}>Second Term</option>
+        <option value="third"  {{ 'selected' if term == 'third' }}>Third Term</option>
+      </select>
+    </div>
+  </form>
+</div>
+
+{% if not selected_class or not selected_subject %}
+  <div class="bg-white rounded-2xl border border-slate-100 p-16 text-center">
+    <p class="text-slate-500">Pick a class and subject to start entering grades.</p>
+  </div>
+{% elif not rows %}
+  <div class="bg-white rounded-2xl border border-slate-100 p-16 text-center">
+    <p class="text-slate-500">No students in {{ selected_class.name }}.</p>
+  </div>
+{% else %}
+  <form method="POST" action="{{ url_for('teacher.gradebook_save') }}">
+    <input type="hidden" name="class_id" value="{{ selected_class_id }}">
+    <input type="hidden" name="subject_id" value="{{ selected_subject_id }}">
+    <input type="hidden" name="term" value="{{ term }}">
+    <input type="hidden" name="academic_year" value="{{ academic_year }}">
+
+    <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+      <div class="p-5 border-b border-slate-100">
+        <h2 class="font-bold">{{ selected_class.name }} · {{ selected_subject.name }}</h2>
+        <p class="text-xs text-slate-500 mt-0.5">{{ term|capitalize }} Term · {{ academic_year }}</p>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[720px]">
+          <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
+            <tr>
+              <th class="text-left px-5 py-3 font-semibold">Student</th>
+              <th class="text-center px-3 py-3 font-semibold w-32">CA ({{ ca_max }})</th>
+              <th class="text-center px-3 py-3 font-semibold w-32">Exam ({{ exam_max }})</th>
+              <th class="text-center px-3 py-3 font-semibold w-24">Total</th>
+              <th class="text-center px-3 py-3 font-semibold w-20">Grade</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for r in rows %}
+              <tr data-row="{{ r.student._id }}">
+                <td class="px-5 py-3">
+                  <p class="font-semibold">{{ r.student.last_name }} {{ r.student.first_name }}</p>
+                  <p class="text-xs text-slate-500">{{ r.student.admission_no }}</p>
+                </td>
+                <td class="px-3 py-3">
+                  <input type="number" name="ca_{{ r.student._id }}" value="{{ r.ca }}"
+                         min="0" max="{{ ca_max }}" data-ca
+                         class="w-full text-center px-2 py-2 rounded-lg border border-slate-200
+                                focus:border-brand-500 outline-none">
+                </td>
+                <td class="px-3 py-3">
+                  <input type="number" name="exam_{{ r.student._id }}" value="{{ r.exam }}"
+                         min="0" max="{{ exam_max }}" data-exam
+                         class="w-full text-center px-2 py-2 rounded-lg border border-slate-200
+                                focus:border-brand-500 outline-none">
+                </td>
+                <td class="px-3 py-3 text-center">
+                  <span data-total class="font-bold text-lg">{{ r.total if r.total is not none else '—' }}</span>
+                </td>
+                <td class="px-3 py-3 text-center">
+                  <span data-grade class="inline-block text-xs font-bold px-2 py-1 rounded
+                        {{ 'bg-green-50 text-green-700' if r.grade in ['A1','B2','B3']
+                           else 'bg-blue-50 text-blue-700' if r.grade in ['C4','C5','C6']
+                           else 'bg-amber-50 text-amber-700' if r.grade in ['D7','E8']
+                           else 'bg-red-50 text-red-700' if r.grade == 'F9'
+                           else 'bg-slate-100 text-slate-500' }}">
+                    {{ r.grade or '—' }}
+                  </span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="sticky bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 mt-4 px-4 sm:px-6 lg:px-8 py-4 bg-white
+                border-t border-slate-100 flex justify-end z-10">
+      <button type="submit" class="px-6 py-3 rounded-xl bg-brand-600 hover:bg-brand-700
+                                    text-white font-semibold">Save grades</button>
+    </div>
+  </form>
+
+  <script>
+  const SCALE = [[80,'A1'],[75,'B2'],[70,'B3'],[65,'C4'],[60,'C5'],[55,'C6'],[50,'D7'],[45,'E8'],[0,'F9']];
+  function gradeFor(t){ for (const [th,l] of SCALE) if (t>=th) return l; return 'F9'; }
+  function colorFor(l){
+    if (['A1','B2','B3'].includes(l)) return 'bg-green-50 text-green-700';
+    if (['C4','C5','C6'].includes(l)) return 'bg-blue-50 text-blue-700';
+    if (['D7','E8'].includes(l)) return 'bg-amber-50 text-amber-700';
+    return 'bg-red-50 text-red-700';
+  }
+  document.querySelectorAll('[data-row]').forEach(row => {
+    const ca = row.querySelector('[data-ca]');
+    const exam = row.querySelector('[data-exam]');
+    const tot = row.querySelector('[data-total]');
+    const gr = row.querySelector('[data-grade]');
+    const recompute = () => {
+      const c = Math.max(0, Math.min(parseInt(ca.value||0,10), {{ ca_max }}));
+      const e = Math.max(0, Math.min(parseInt(exam.value||0,10), {{ exam_max }}));
+      if (ca.value==='' && exam.value==='') { tot.textContent='—'; gr.textContent='—'; gr.className='inline-block text-xs font-bold px-2 py-1 rounded bg-slate-100 text-slate-500'; return; }
+      const t = c + e;
+      tot.textContent = t;
+      const l = gradeFor(t);
+      gr.textContent = l;
+      gr.className = 'inline-block text-xs font-bold px-2 py-1 rounded ' + colorFor(l);
+    };
+    ca.addEventListener('input', recompute);
+    exam.addEventListener('input', recompute);
+  });
+  </script>
+{% endif %}
+
+{% endblock %}

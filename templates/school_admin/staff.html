@@ -1,0 +1,144 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Staff{% endblock %}
+{% block breadcrumb %}Staff{% endblock %}
+
+{% block topbar_action %}
+  <a href="{{ url_for('school_admin.staff_new') }}"
+     class="hidden sm:inline-flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700
+            text-white text-sm font-semibold px-3.5 py-2 rounded-lg transition shadow-sm">
+    + Add staff
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Total</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ stats.total }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Active</p>
+    <p class="mt-2 text-3xl font-extrabold text-green-600">{{ stats.active }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Teachers</p>
+    <p class="mt-2 text-3xl font-extrabold text-brand-600">{{ stats.teachers }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">On leave</p>
+    <p class="mt-2 text-3xl font-extrabold text-amber-600">{{ stats.on_leave }}</p>
+  </div>
+</div>
+
+<div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+  <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+    <h2 class="font-bold">All staff <span class="text-slate-400 font-normal">({{ staff|length }})</span></h2>
+    <form method="GET" class="flex flex-col sm:flex-row gap-2">
+      <input type="text" name="q" value="{{ search }}" placeholder="Search name or staff no…"
+             class="px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-brand-500 outline-none">
+      <select name="role" class="px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-brand-500 outline-none bg-white">
+        <option value="">All roles</option>
+        <option value="teacher"      {{ 'selected' if role_f == 'teacher' }}>Teacher</option>
+        <option value="school_admin" {{ 'selected' if role_f == 'school_admin' }}>Admin</option>
+        <option value="accountant"   {{ 'selected' if role_f == 'accountant' }}>Accountant</option>
+      </select>
+      <select name="status" class="px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-brand-500 outline-none bg-white">
+        <option value="active"   {{ 'selected' if status == 'active' }}>Active</option>
+        <option value="on_leave" {{ 'selected' if status == 'on_leave' }}>On leave</option>
+        <option value="resigned" {{ 'selected' if status == 'resigned' }}>Resigned</option>
+        <option value=""         {{ 'selected' if status == '' }}>All</option>
+      </select>
+      <button class="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-900 text-white">Filter</button>
+      {% if search or role_f or status != 'active' %}
+        <a href="{{ url_for('school_admin.staff_list') }}"
+           class="px-4 py-2 text-sm font-semibold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">
+          Reset
+        </a>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm min-w-[900px]">
+      <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
+        <tr>
+          <th class="text-left px-5 py-3 font-semibold">Staff</th>
+          <th class="text-left px-5 py-3 font-semibold">Staff no</th>
+          <th class="text-left px-5 py-3 font-semibold">Role</th>
+          <th class="text-left px-5 py-3 font-semibold">Designation</th>
+          <th class="text-left px-5 py-3 font-semibold">Status</th>
+          <th class="text-right px-5 py-3 font-semibold">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for m in staff %}
+          {% set u = m._user %}
+          <tr class="hover:bg-slate-50">
+            <td class="px-5 py-4">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-amber-100 grid place-items-center text-amber-700 font-bold text-xs shrink-0">
+                  {{ u.name[:1]|upper }}{{ (u.name.split(' ')[1][:1] if u.name.split(' ')|length > 1 else '')|upper }}
+                </div>
+                <div class="min-w-0">
+                  <p class="font-semibold truncate">{{ u.name }}</p>
+                  <p class="text-xs text-slate-500 truncate">{{ u.email }}</p>
+                </div>
+              </div>
+            </td>
+            <td class="px-5 py-4">
+              <code class="text-xs bg-slate-100 px-2 py-0.5 rounded">{{ m.staff_no or '—' }}</code>
+            </td>
+            <td class="px-5 py-4">
+              {% set role_styles = {
+                'teacher':      'bg-brand-50 text-brand-700',
+                'school_admin': 'bg-purple-50 text-purple-700',
+                'accountant':   'bg-emerald-50 text-emerald-700',
+              } %}
+              <span class="text-xs font-semibold px-2 py-1 rounded {{ role_styles.get(u.role, 'bg-slate-100 text-slate-600') }}">
+                {{ u.role|replace('_',' ')|capitalize }}
+              </span>
+            </td>
+            <td class="px-5 py-4 text-slate-600">{{ m.designation or '—' }}</td>
+            <td class="px-5 py-4">
+              {% if m.status == 'active' %}
+                <span class="text-xs font-semibold px-2 py-1 rounded bg-green-50 text-green-700">● Active</span>
+              {% elif m.status == 'on_leave' %}
+                <span class="text-xs font-semibold px-2 py-1 rounded bg-amber-50 text-amber-700">On leave</span>
+              {% else %}
+                <span class="text-xs font-semibold px-2 py-1 rounded bg-slate-100 text-slate-600">{{ m.status|capitalize }}</span>
+              {% endif %}
+            </td>
+            <td class="px-5 py-4 text-right whitespace-nowrap">
+              <a href="{{ url_for('school_admin.staff_detail', staff_id=m._id) }}"
+                 class="text-brand-600 text-xs font-semibold hover:underline">View</a>
+              <a href="{{ url_for('school_admin.staff_edit', staff_id=m._id) }}"
+                 class="ml-3 text-slate-600 text-xs font-semibold hover:underline">Edit</a>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="6" class="px-5 py-16 text-center">
+              <div class="max-w-sm mx-auto">
+                <div class="w-16 h-16 mx-auto rounded-2xl bg-amber-50 grid place-items-center text-amber-600 text-2xl">👩‍🏫</div>
+                <p class="mt-4 font-semibold text-slate-700">
+                  {% if search or role_f or status != 'active' %}No staff match your filters{% else %}No staff yet{% endif %}
+                </p>
+                <p class="mt-1 text-sm text-slate-500">
+                  {% if search or role_f or status != 'active' %}Try a different search or reset.{% else %}Invite teachers and staff to your school.{% endif %}
+                </p>
+                <div class="mt-4">
+                  <a href="{{ url_for('school_admin.staff_new') }}"
+                     class="px-4 py-2 text-sm font-semibold rounded-lg bg-brand-600 hover:bg-brand-700 text-white">
+                    + Add staff
+                  </a>
+                </div>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

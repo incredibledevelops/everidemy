@@ -1,0 +1,380 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Welcome back, {{ g.user.name.split(' ')[0] if g.user else '' }} 👋{% endblock %}
+{% block breadcrumb %}Overview{% endblock %}
+
+{% block topbar_action %}
+  <a href="#"
+     class="hidden sm:inline-flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700
+            text-white text-sm font-semibold px-3.5 py-2 rounded-lg transition shadow-sm">
+    + Admit student
+  </a>
+{% endblock %}
+
+
+{% block content %}
+
+<!-- =========================================================
+     SUBSCRIPTION BANNER (only when trialing)
+     ========================================================= -->
+{% if trial_days_left is not none and trial_days_left <= 5 %}
+<div class="rounded-2xl bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-200 p-4
+            flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+  <div class="flex items-start gap-3">
+    <div class="w-10 h-10 rounded-xl bg-amber-200 grid place-items-center text-amber-800 shrink-0">
+      ⏳
+    </div>
+    <div>
+      <p class="font-bold text-amber-900">
+        Your free trial ends in {{ trial_days_left }} day{{ 's' if trial_days_left != 1 }}
+      </p>
+      <p class="text-sm text-amber-800 mt-0.5">
+        Subscribe now to keep using Everidemy without interruption.
+      </p>
+    </div>
+  </div>
+  <a href="{{ url_for('school_admin.billing_page') }}"
+     class="inline-flex justify-center items-center px-4 py-2 rounded-lg
+            bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold shrink-0">
+    Subscribe — {{ format_money(plans.monthly.price) }}/mo
+  </a>
+</div>
+{% endif %}
+
+
+<!-- =========================================================
+     KPI CARDS
+     ========================================================= -->
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <div class="flex items-center justify-between">
+      <p class="text-xs uppercase font-semibold text-slate-500">Total Students</p>
+      <div class="w-9 h-9 rounded-lg bg-brand-50 grid place-items-center text-brand-600">👨‍🎓</div>
+    </div>
+    <p class="mt-2 text-3xl font-extrabold">{{ total_students }}</p>
+    <p class="mt-1 text-xs text-slate-500">
+      {% if total_students %}
+        Active enrollments
+      {% else %}
+        <a href="#" class="text-brand-600 font-semibold">Admit the first one →</a>
+      {% endif %}
+    </p>
+  </div>
+
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <div class="flex items-center justify-between">
+      <p class="text-xs uppercase font-semibold text-slate-500">Staff</p>
+      <div class="w-9 h-9 rounded-lg bg-amber-50 grid place-items-center text-amber-600">👩‍🏫</div>
+    </div>
+    <p class="mt-2 text-3xl font-extrabold">{{ total_staff }}</p>
+    <p class="mt-1 text-xs text-slate-500">
+      {% if total_staff %}Active staff{% else %}No staff added yet{% endif %}
+    </p>
+  </div>
+
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <div class="flex items-center justify-between">
+      <p class="text-xs uppercase font-semibold text-slate-500">Attendance today</p>
+      <div class="w-9 h-9 rounded-lg bg-purple-50 grid place-items-center text-purple-600">📋</div>
+    </div>
+    <p class="mt-2 text-3xl font-extrabold">
+      {% if attendance_marked %}{{ attendance_pct }}%{% else %}—{% endif %}
+    </p>
+    <p class="mt-1 text-xs text-slate-500">
+      {% if attendance_marked %}
+        {{ attendance_pct }}% present today
+      {% else %}
+        <a href="{{ url_for('school_admin.attendance_page') }}"
+           class="text-brand-600 font-semibold">Mark now →</a>
+      {% endif %}
+    </p>
+  </div>
+
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <div class="flex items-center justify-between">
+      <p class="text-xs uppercase font-semibold text-slate-500">Fees collected</p>
+      <div class="w-9 h-9 rounded-lg bg-emerald-50 grid place-items-center text-emerald-600">💳</div>
+    </div>
+    <p class="mt-2 text-3xl font-extrabold">
+      {% if fees_expected %}{{ fees_pct }}%{% else %}—{% endif %}
+    </p>
+    <p class="mt-1 text-xs text-slate-500">
+      {% if fees_expected %}
+        {{ format_money(fees_collected) }} of {{ format_money(fees_expected) }}
+      {% else %}
+        <a href="{{ url_for('school_admin.fees_page') }}"
+           class="text-brand-600 font-semibold">Set up fees →</a>
+      {% endif %}
+    </p>
+  </div>
+</div>
+
+
+<!-- =========================================================
+     QUICK ACTIONS
+     ========================================================= -->
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+  <a href="#"
+     class="bg-white rounded-xl p-4 border border-slate-100 hover:border-brand-500
+            hover:shadow transition flex items-center gap-3 group">
+    <div class="w-10 h-10 rounded-lg bg-brand-50 grid place-items-center text-brand-600 group-hover:scale-110 transition">
+      👨‍🎓
+    </div>
+    <div class="min-w-0">
+      <p class="font-semibold text-sm">Admit student</p>
+      <p class="text-xs text-slate-500">Add new</p>
+    </div>
+  </a>
+
+  <a href="{{ url_for('school_admin.attendance_page') }}"
+     class="bg-white rounded-xl p-4 border border-slate-100 hover:border-brand-500
+            hover:shadow transition flex items-center gap-3 group">
+    <div class="w-10 h-10 rounded-lg bg-amber-50 grid place-items-center text-amber-600 group-hover:scale-110 transition">
+      📋
+    </div>
+    <div class="min-w-0">
+      <p class="font-semibold text-sm">Take attendance</p>
+      <p class="text-xs text-slate-500">Today</p>
+    </div>
+  </a>
+
+  <a href="{{ url_for('school_admin.fees_page') }}"
+     class="bg-white rounded-xl p-4 border border-slate-100 hover:border-brand-500
+            hover:shadow transition flex items-center gap-3 group">
+    <div class="w-10 h-10 rounded-lg bg-emerald-50 grid place-items-center text-emerald-600 group-hover:scale-110 transition">
+      💳
+    </div>
+    <div class="min-w-0">
+      <p class="font-semibold text-sm">Generate invoice</p>
+      <p class="text-xs text-slate-500">This term</p>
+    </div>
+  </a>
+
+  <a href="{{ url_for('school_admin.announcements_page') }}"
+     class="bg-white rounded-xl p-4 border border-slate-100 hover:border-brand-500
+            hover:shadow transition flex items-center gap-3 group">
+    <div class="w-10 h-10 rounded-lg bg-purple-50 grid place-items-center text-purple-600 group-hover:scale-110 transition">
+      📢
+    </div>
+    <div class="min-w-0">
+      <p class="font-semibold text-sm">Post notice</p>
+      <p class="text-xs text-slate-500">To all</p>
+    </div>
+  </a>
+</div>
+
+
+<!-- =========================================================
+     CHART + NOTICES
+     ========================================================= -->
+<div class="grid lg:grid-cols-3 gap-6">
+
+  <!-- Enrollment chart -->
+  <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-100">
+    <div class="flex items-center justify-between">
+      <div>
+        <h2 class="font-bold">Enrollment trend</h2>
+        <p class="text-xs text-slate-500 mt-0.5">Number of active students over time</p>
+      </div>
+      <select class="text-sm border border-slate-200 rounded-lg px-2 py-1 bg-white">
+        <option>Last 6 months</option>
+        <option>This term</option>
+      </select>
+    </div>
+
+    <svg viewBox="0 0 600 200" class="mt-6 w-full h-56" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="grad-school" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="#3454f5" stop-opacity="0.35"/>
+          <stop offset="100%" stop-color="#3454f5" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <g stroke="#eef1f7" stroke-width="1">
+        <line x1="0" y1="50"  x2="600" y2="50"/>
+        <line x1="0" y1="100" x2="600" y2="100"/>
+        <line x1="0" y1="150" x2="600" y2="150"/>
+      </g>
+      <path d="M0,160 C80,150 120,140 200,120 C280,100 320,110 400,80 C480,55 540,45 600,30 L600,200 L0,200 Z"
+            fill="url(#grad-school)"/>
+      <path d="M0,160 C80,150 120,140 200,120 C280,100 320,110 400,80 C480,55 540,45 600,30"
+            fill="none" stroke="#3454f5" stroke-width="3"/>
+    </svg>
+
+    <div class="flex justify-between text-xs text-slate-500 mt-3">
+      <span>Sep</span><span>Oct</span><span>Nov</span>
+      <span>Dec</span><span>Jan</span><span>Feb</span>
+    </div>
+  </div>
+
+  <!-- Recent notices -->
+  <div class="bg-white rounded-2xl p-6 border border-slate-100">
+    <div class="flex items-center justify-between">
+      <h2 class="font-bold">Recent notices</h2>
+      <a href="{{ url_for('school_admin.announcements_page') }}"
+         class="text-brand-600 text-xs font-semibold hover:underline">All →</a>
+    </div>
+
+    {% if recent_notices %}
+      <ul class="mt-4 space-y-4 text-sm">
+        {% for n in recent_notices %}
+          <li class="border-l-2 border-brand-500 pl-3">
+            <p class="font-semibold truncate">{{ n.title }}</p>
+            <p class="text-xs text-slate-500 mt-0.5">
+              {{ n.created_at.strftime('%b %d · %H:%M') if n.created_at else '' }}
+              {% if n.audience %} · {{ n.audience|capitalize }}{% endif %}
+            </p>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="mt-6 text-center">
+        <div class="w-12 h-12 mx-auto rounded-xl bg-slate-100 grid place-items-center text-slate-400 text-xl">
+          📢
+        </div>
+        <p class="mt-3 text-sm text-slate-500">No notices yet</p>
+        <a href="{{ url_for('school_admin.announcements_page') }}"
+           class="mt-2 inline-block text-xs font-semibold text-brand-600 hover:underline">
+          Post the first one →
+        </a>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+
+<!-- =========================================================
+     FEE TABLE + ATTENDANCE CHART
+     ========================================================= -->
+<div class="grid lg:grid-cols-3 gap-6">
+
+  <!-- Recent fee payments (placeholder data) -->
+  <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-100 overflow-hidden">
+    <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+      <h2 class="font-bold">Recent fee payments</h2>
+      <a href="{{ url_for('school_admin.fees_page') }}"
+         class="text-brand-600 text-sm font-semibold hover:underline">View all</a>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm min-w-[600px]">
+        <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
+          <tr>
+            <th class="text-left px-5 py-3 font-semibold">Student</th>
+            <th class="text-left px-5 py-3 font-semibold">Class</th>
+            <th class="text-left px-5 py-3 font-semibold">Amount</th>
+            <th class="text-left px-5 py-3 font-semibold">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          <tr><td colspan="4" class="px-5 py-12 text-center text-slate-500">
+            <div class="w-12 h-12 mx-auto rounded-xl bg-slate-100 grid place-items-center text-slate-400 text-xl">💳</div>
+            <p class="mt-3 font-semibold text-slate-700">No payments yet</p>
+            <p class="mt-1 text-xs">Fee payments appear here as parents pay online.</p>
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Attendance 7 days (placeholder) -->
+  <div class="bg-white rounded-2xl p-6 border border-slate-100">
+    <h2 class="font-bold">Attendance (7 days)</h2>
+    <p class="text-xs text-slate-500 mt-0.5">Weekly attendance %</p>
+
+    <div class="mt-6 flex items-end gap-2 h-40">
+      {% set bars = [80, 92, 88, 95, 70, 0, 0] %}
+      {% set labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
+      {% for bar in bars %}
+        <div class="flex-1 flex flex-col items-center gap-2">
+          <div class="w-full bg-brand-500 rounded-t transition-all"
+               style="height: {{ bar }}%; min-height: 2px; opacity: {{ '1' if bar else '0.15' }}"></div>
+          <span class="text-[10px] text-slate-500">{{ labels[loop.index0] }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+
+<!-- =========================================================
+     NEWEST STUDENTS + ACTIVITY
+     ========================================================= -->
+<div class="grid lg:grid-cols-2 gap-6">
+
+  <!-- Newest students -->
+  <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+    <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+      <h2 class="font-bold">Newest students</h2>
+      <a href="{{ url_for('school_admin.students_list') }}"
+         class="text-brand-600 text-xs font-semibold hover:underline">All →</a>
+    </div>
+
+    {% if newest_students %}
+      <ul class="divide-y divide-slate-100 text-sm">
+        {% for s in newest_students %}
+          <li class="px-5 py-4 flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-brand-100 grid place-items-center
+                        text-brand-700 font-bold text-xs shrink-0">
+              {{ s.first_name[:1]|upper }}{{ s.last_name[:1]|upper if s.last_name }}
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold truncate">
+                {{ s.first_name }} {{ s.last_name }}
+              </p>
+              <p class="text-xs text-slate-500 truncate">
+                {{ s.admission_no or '—' }}
+                {% if s.gender %} · {{ s.gender|capitalize }}{% endif %}
+              </p>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="px-5 py-10 text-center">
+        <div class="w-12 h-12 mx-auto rounded-xl bg-slate-100 grid place-items-center text-slate-400 text-xl">👨‍🎓</div>
+        <p class="mt-3 font-semibold text-slate-700">No students yet</p>
+        <p class="mt-1 text-xs text-slate-500">Start by admitting your first student.</p>
+        <a href="#"
+           class="mt-3 inline-block px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700
+                  text-white text-xs font-semibold">
+          + Admit student
+        </a>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Recent activity -->
+  <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+    <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+      <h2 class="font-bold">Recent activity</h2>
+      <a href="{{ url_for('school_admin.reports_page') }}"
+         class="text-brand-600 text-xs font-semibold hover:underline">Reports →</a>
+    </div>
+
+    {% if recent_activity %}
+      <ul class="divide-y divide-slate-100 text-sm">
+        {% for log in recent_activity %}
+          <li class="px-5 py-4 flex items-center gap-3">
+            <span class="text-xs font-mono px-2 py-1 rounded bg-slate-100 text-slate-700 whitespace-nowrap shrink-0">
+              {{ log.action }}
+            </span>
+            <span class="text-slate-500 flex-1 truncate text-xs">
+              {% if log.meta %}
+                {% for k, v in log.meta.items() %}{{ k }}: {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}
+              {% else %}—{% endif %}
+            </span>
+            <span class="text-xs text-slate-400 whitespace-nowrap">
+              {{ log.timestamp.strftime('%b %d · %H:%M') if log.timestamp else '' }}
+            </span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="px-5 py-10 text-center text-sm text-slate-500">
+        No activity recorded yet.
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

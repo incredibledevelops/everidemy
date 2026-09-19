@@ -1,0 +1,210 @@
+{% extends "parent/base.html" %}
+{% block page_title %}{{ child.first_name }} {{ child.last_name }}{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('parent.dashboard') }}" class="hover:text-brand-600">Dashboard</a> / {{ child.first_name }}
+{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('parent.dashboard') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to dashboard
+</a>
+
+<div class="bg-white rounded-2xl border border-slate-100 p-6">
+  <div class="flex items-center gap-4">
+    <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700
+                grid place-items-center text-white font-extrabold text-xl">
+      {{ child.first_name[:1]|upper }}{{ child.last_name[:1]|upper }}
+    </div>
+    <div class="flex-1 min-w-0">
+      <h2 class="text-2xl font-extrabold">{{ child.first_name }} {{ child.last_name }}</h2>
+      <p class="text-sm text-slate-500">
+        {{ child.admission_no }} {% if klass %}· {{ klass.name }}{% endif %}
+      </p>
+    </div>
+    <div class="grid grid-cols-3 gap-3 text-xs">
+      <div class="text-center px-3 py-2 rounded-lg bg-slate-50">
+        <p class="text-slate-500">Attend.</p>
+        <p class="font-bold text-base">{{ att_pct }}%</p>
+      </div>
+      <div class="text-center px-3 py-2 rounded-lg bg-slate-50">
+        <p class="text-slate-500">Avg</p>
+        <p class="font-bold text-base">{{ average }}%</p>
+      </div>
+      <div class="text-center px-3 py-2 rounded-lg {{ 'bg-red-50' if balance > 0 else 'bg-slate-50' }}">
+        <p class="{{ 'text-red-700' if balance > 0 else 'text-slate-500' }}">Balance</p>
+        <p class="font-bold text-base">{{ format_money(balance) }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+  <div class="border-b border-slate-100 overflow-x-auto">
+    <nav class="flex min-w-max">
+      {% set tabs = [
+        ('overview',   'Overview'),
+        ('grades',     'Grades'),
+        ('attendance', 'Attendance'),
+        ('fees',       'Fees'),
+      ] %}
+      {% for key, label in tabs %}
+        <a href="{{ url_for('parent.child_detail', student_id=child._id, tab=key) }}"
+           class="px-5 py-4 text-sm font-semibold border-b-2 whitespace-nowrap transition
+                  {{ 'border-brand-500 text-brand-700' if active_tab == key
+                     else 'border-transparent text-slate-600 hover:text-slate-900' }}">
+          {{ label }}
+        </a>
+      {% endfor %}
+    </nav>
+  </div>
+
+  {# Overview #}
+  {% if active_tab == 'overview' %}
+    <div class="p-6">
+      <dl class="grid sm:grid-cols-2 gap-6 text-sm">
+        <div><dt class="text-xs uppercase font-semibold text-slate-500">Gender</dt>
+             <dd class="mt-1 font-semibold">{{ child.gender|capitalize if child.gender else '—' }}</dd></div>
+        <div><dt class="text-xs uppercase font-semibold text-slate-500">Date of birth</dt>
+             <dd class="mt-1 font-semibold">{{ child.dob.strftime('%b %d, %Y') if child.dob else '—' }}</dd></div>
+        <div><dt class="text-xs uppercase font-semibold text-slate-500">Guardian</dt>
+             <dd class="mt-1 font-semibold">{{ child.guardian_name or '—' }}</dd></div>
+        <div><dt class="text-xs uppercase font-semibold text-slate-500">Phone</dt>
+             <dd class="mt-1 font-semibold">{{ child.guardian_phone or '—' }}</dd></div>
+      </dl>
+    </div>
+  {% endif %}
+
+  {# Grades #}
+  {% if active_tab == 'grades' %}
+    <div class="p-6">
+      {% if grades %}
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
+            <tr>
+              <th class="text-left px-4 py-3 font-semibold">Subject</th>
+              <th class="text-center px-3 py-3 font-semibold">CA</th>
+              <th class="text-center px-3 py-3 font-semibold">Exam</th>
+              <th class="text-center px-3 py-3 font-semibold">Total</th>
+              <th class="text-center px-3 py-3 font-semibold">Grade</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for r in grades %}
+              <tr>
+                <td class="px-4 py-3 font-semibold">{{ r.subject }}</td>
+                <td class="px-3 py-3 text-center">{{ r.ca }}</td>
+                <td class="px-3 py-3 text-center">{{ r.exam }}</td>
+                <td class="px-3 py-3 text-center font-bold">{{ r.total }}</td>
+                <td class="px-3 py-3 text-center">
+                  <span class="text-xs font-bold px-2 py-1 rounded
+                        {{ 'bg-green-50 text-green-700' if r.grade in ['A1','B2','B3']
+                           else 'bg-blue-50 text-blue-700' if r.grade in ['C4','C5','C6']
+                           else 'bg-amber-50 text-amber-700' if r.grade in ['D7','E8']
+                           else 'bg-red-50 text-red-700' }}">{{ r.grade }}</span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p class="py-10 text-center text-slate-500">No grades yet.</p>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {# Attendance #}
+  {% if active_tab == 'attendance' %}
+    <div class="p-6">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div class="rounded-2xl bg-green-50 p-4">
+          <p class="text-xs uppercase font-semibold text-green-700">Present</p>
+          <p class="mt-1 text-2xl font-extrabold text-green-700">{{ att_counts.present }}</p>
+        </div>
+        <div class="rounded-2xl bg-red-50 p-4">
+          <p class="text-xs uppercase font-semibold text-red-700">Absent</p>
+          <p class="mt-1 text-2xl font-extrabold text-red-700">{{ att_counts.absent }}</p>
+        </div>
+        <div class="rounded-2xl bg-amber-50 p-4">
+          <p class="text-xs uppercase font-semibold text-amber-700">Late</p>
+          <p class="mt-1 text-2xl font-extrabold text-amber-700">{{ att_counts.late }}</p>
+        </div>
+        <div class="rounded-2xl bg-blue-50 p-4">
+          <p class="text-xs uppercase font-semibold text-blue-700">Excused</p>
+          <p class="mt-1 text-2xl font-extrabold text-blue-700">{{ att_counts.excused }}</p>
+        </div>
+      </div>
+      {% if recent_att %}
+        <ul class="divide-y divide-slate-100 text-sm">
+          {% for r in recent_att %}
+            {% set cls = {
+              'present': 'bg-green-100 text-green-700',
+              'absent':  'bg-red-100 text-red-700',
+              'late':    'bg-amber-100 text-amber-700',
+              'excused': 'bg-blue-100 text-blue-700',
+            }.get(r.status, 'bg-slate-100 text-slate-700') %}
+            <li class="py-2 flex items-center justify-between">
+              <span>{{ r.date.strftime('%a, %b %d, %Y') }}</span>
+              <span class="text-xs font-semibold px-2 py-1 rounded {{ cls }}">{{ r.status|capitalize }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="py-10 text-center text-slate-500">No attendance yet.</p>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  {# Fees #}
+  {% if active_tab == 'fees' %}
+    <div class="p-6">
+      <div class="grid sm:grid-cols-3 gap-4 mb-6">
+        <div class="rounded-2xl bg-slate-50 p-4">
+          <p class="text-xs uppercase font-semibold text-slate-500">Total due</p>
+          <p class="mt-1 text-xl font-extrabold">{{ format_money(total_due) }}</p>
+        </div>
+        <div class="rounded-2xl bg-green-50 p-4">
+          <p class="text-xs uppercase font-semibold text-green-700">Paid</p>
+          <p class="mt-1 text-xl font-extrabold text-green-700">{{ format_money(total_paid) }}</p>
+        </div>
+        <div class="rounded-2xl {{ 'bg-red-50' if balance > 0 else 'bg-slate-50' }} p-4">
+          <p class="text-xs uppercase font-semibold
+                    {{ 'text-red-700' if balance > 0 else 'text-slate-500' }}">Balance</p>
+          <p class="mt-1 text-xl font-extrabold
+                    {{ 'text-red-700' if balance > 0 else 'text-slate-700' }}">{{ format_money(balance) }}</p>
+        </div>
+      </div>
+
+      {% if invoices %}
+        <div class="space-y-3">
+          {% for inv in invoices %}
+            <div class="border border-slate-200 rounded-xl p-4 flex flex-wrap items-center gap-3">
+              <code class="text-xs bg-slate-100 px-2 py-0.5 rounded">{{ inv.invoice_no }}</code>
+              <span class="text-xs font-semibold px-2 py-0.5 rounded
+                    {{ 'bg-green-50 text-green-700' if inv.status == 'paid'
+                       else 'bg-amber-50 text-amber-700' if inv.status == 'partial'
+                       else 'bg-red-50 text-red-700' }}">
+                {{ inv.status|capitalize }}
+              </span>
+              <div class="ml-auto text-right">
+                <p class="text-sm font-bold">{{ format_money(inv.amount_due) }}</p>
+                <p class="text-xs text-slate-500">Balance: {{ format_money(inv.balance) }}</p>
+              </div>
+              {% if inv.status != 'paid' and inv.status != 'waived' %}
+                <a href="{{ url_for('parent.pay_fee', student_id=child._id, invoice_id=inv._id) }}"
+                   class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold">
+                  Pay now
+                </a>
+              {% endif %}
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="py-10 text-center text-slate-500">No invoices yet.</p>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+
+{% endblock %}

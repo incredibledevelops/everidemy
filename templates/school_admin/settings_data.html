@@ -1,0 +1,120 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Data & Privacy{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.settings_page') }}" class="hover:text-brand-600">Settings</a>
+  / Data
+{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('school_admin.settings_page') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to settings
+</a>
+
+<!-- Storage overview -->
+<div class="bg-white rounded-2xl border border-slate-100 p-6 sm:p-8">
+  <h2 class="font-bold text-lg">Your data</h2>
+  <p class="text-sm text-slate-500 mt-0.5">
+    Everything stored under your school. You own all of it.
+  </p>
+
+  <div class="mt-6 grid grid-cols-2 sm:grid-cols-5 gap-3">
+    {% set data_items = [
+      ('Students',      counts.students,      '👨‍🎓'),
+      ('Staff',         counts.staff,         '👩‍🏫'),
+      ('Classes',       counts.classes,       '🏛️'),
+      ('Subjects',      counts.subjects,      '📚'),
+      ('Attendance',    counts.attendance,    '✅'),
+      ('Grades',        counts.grades,        '📝'),
+      ('Invoices',      counts.invoices,      '💳'),
+      ('Payments',      counts.payments,      '💰'),
+      ('Messages',      counts.messages,      '💬'),
+      ('Notices',       counts.announcements, '📢'),
+    ] %}
+    {% for label, count, icon in data_items %}
+      <div class="rounded-xl bg-slate-50 p-3 text-center">
+        <p class="text-lg">{{ icon }}</p>
+        <p class="mt-1 text-xl font-extrabold">{{ count }}</p>
+        <p class="text-[10px] uppercase font-semibold text-slate-500 mt-0.5">{{ label }}</p>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Export -->
+<div class="bg-white rounded-2xl border border-slate-100 p-6 sm:p-8">
+  <div class="flex items-start gap-3">
+    <div class="w-10 h-10 rounded-xl bg-brand-50 grid place-items-center text-brand-600 shrink-0">📦</div>
+    <div class="flex-1">
+      <h2 class="font-bold">Export your data</h2>
+      <p class="text-sm text-slate-500 mt-0.5">
+        Download a ZIP of CSVs — students, classes, subjects, grades, invoices.
+        Import-ready for any other system.
+      </p>
+    </div>
+  </div>
+
+  <a href="{{ url_for('school_admin.settings_data_export') }}"
+     class="mt-6 inline-flex items-center gap-2 px-5 py-3 rounded-xl
+            bg-brand-600 hover:bg-brand-700 text-white font-semibold">
+    ⬇️ Download full export
+  </a>
+</div>
+
+<!-- Bulk operations -->
+<div class="bg-white rounded-2xl border border-slate-100 p-6 sm:p-8">
+  <div class="flex items-start gap-3">
+    <div class="w-10 h-10 rounded-xl bg-amber-50 grid place-items-center text-amber-600 shrink-0">📁</div>
+    <div class="flex-1">
+      <h2 class="font-bold">Bulk operations</h2>
+      <p class="text-sm text-slate-500 mt-0.5">
+        Archive students created before a certain date (e.g., to clear out last year's cohort).
+      </p>
+    </div>
+  </div>
+
+  <form method="POST"
+        action="{{ url_for('school_admin.settings_archive_students') }}"
+        onsubmit="return confirm('This will archive students created before the cutoff. Are you sure?');"
+        class="mt-6 grid sm:grid-cols-3 gap-3 items-end">
+    <div>
+      <label class="text-sm font-semibold text-slate-700">Cutoff date</label>
+      <input type="date" name="cutoff_date" required
+             class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                    focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none">
+    </div>
+    <div>
+      <label class="text-sm font-semibold text-slate-700">Type "ARCHIVE" to confirm</label>
+      <input type="text" name="confirm" required
+             class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                    focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none font-mono uppercase">
+    </div>
+    <button class="px-5 py-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold">
+      Archive students
+    </button>
+  </form>
+</div>
+
+<!-- Danger zone -->
+<div class="bg-red-50 rounded-2xl border border-red-200 p-6 sm:p-8">
+  <div class="flex items-start gap-3">
+    <div class="w-10 h-10 rounded-xl bg-red-100 grid place-items-center text-red-600 shrink-0">⚠️</div>
+    <div class="flex-1">
+      <h2 class="font-bold text-red-900">Danger zone</h2>
+      <p class="text-sm text-red-700 mt-0.5">
+        These actions cannot be undone. Contact support to permanently delete your school account.
+      </p>
+    </div>
+  </div>
+
+  <div class="mt-6">
+    <a href="mailto:support@everidemy.com?subject=Delete%20my%20school%20account"
+       class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-white border border-red-300
+              text-red-700 font-semibold hover:bg-red-100 transition">
+      Contact support to delete account
+    </a>
+  </div>
+</div>
+
+{% endblock %}

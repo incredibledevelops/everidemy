@@ -1,0 +1,110 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Reports & Analytics{% endblock %}
+{% block breadcrumb %}Reports{% endblock %}
+
+{% block content %}
+
+<!-- =========================
+     SNAPSHOT
+     ========================= -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Active students</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ snapshot.students }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Classes</p>
+    <p class="mt-2 text-3xl font-extrabold text-brand-600">{{ snapshot.classes }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Active staff</p>
+    <p class="mt-2 text-3xl font-extrabold text-amber-600">{{ snapshot.staff }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Grades this term</p>
+    <p class="mt-2 text-3xl font-extrabold text-emerald-600">{{ snapshot.grades }}</p>
+  </div>
+</div>
+
+<!-- =========================
+     REPORT CARDS
+     ========================= -->
+<div class="grid sm:grid-cols-2 gap-5">
+
+  <a href="{{ url_for('school_admin.report_enrollment') }}"
+     class="group bg-white rounded-2xl border border-slate-100 p-6 hover:border-brand-400 hover:shadow-lg transition">
+    <div class="flex items-start gap-4">
+      <div class="w-12 h-12 rounded-xl bg-brand-50 grid place-items-center text-brand-600 text-xl shrink-0">
+        👨‍🎓
+      </div>
+      <div class="flex-1 min-w-0">
+        <h3 class="font-bold group-hover:text-brand-600">Enrollment report</h3>
+        <p class="text-sm text-slate-500 mt-1">
+          Total/active students, gender split, by-class distribution, 12-month enrollment trend.
+        </p>
+      </div>
+    </div>
+  </a>
+
+  <a href="{{ url_for('school_admin.report_attendance') }}"
+     class="group bg-white rounded-2xl border border-slate-100 p-6 hover:border-brand-400 hover:shadow-lg transition">
+    <div class="flex items-start gap-4">
+      <div class="w-12 h-12 rounded-xl bg-purple-50 grid place-items-center text-purple-600 text-xl shrink-0">
+        📋
+      </div>
+      <div class="flex-1 min-w-0">
+        <h3 class="font-bold group-hover:text-brand-600">Attendance report</h3>
+        <p class="text-sm text-slate-500 mt-1">
+          Attendance % for any date range, per-class breakdown, daily trend.
+        </p>
+      </div>
+    </div>
+  </a>
+
+  <a href="{{ url_for('school_admin.report_academics') }}"
+     class="group bg-white rounded-2xl border border-slate-100 p-6 hover:border-brand-400 hover:shadow-lg transition">
+    <div class="flex items-start gap-4">
+      <div class="w-12 h-12 rounded-xl bg-emerald-50 grid place-items-center text-emerald-600 text-xl shrink-0">
+        📝
+      </div>
+      <div class="flex-1 min-w-0">
+        <h3 class="font-bold group-hover:text-brand-600">Academics report</h3>
+        <p class="text-sm text-slate-500 mt-1">
+          Grade distribution, subject averages, class rankings, top performers.
+        </p>
+      </div>
+    </div>
+  </a>
+
+  <a href="{{ url_for('school_admin.report_finance') }}"
+     class="group bg-white rounded-2xl border border-slate-100 p-6 hover:border-brand-400 hover:shadow-lg transition">
+    <div class="flex items-start gap-4">
+      <div class="w-12 h-12 rounded-xl bg-amber-50 grid place-items-center text-amber-600 text-xl shrink-0">
+        💰
+      </div>
+      <div class="flex-1 min-w-0">
+        <h3 class="font-bold group-hover:text-brand-600">Finance report</h3>
+        <p class="text-sm text-slate-500 mt-1">
+          Collections, outstanding balances, payment channels, 12-month revenue trend.
+        </p>
+      </div>
+    </div>
+  </a>
+
+  <a href="{{ url_for('school_admin.report_staff') }}"
+     class="group bg-white rounded-2xl border border-slate-100 p-6 hover:border-brand-400 hover:shadow-lg transition sm:col-span-2">
+    <div class="flex items-start gap-4">
+      <div class="w-12 h-12 rounded-xl bg-sky-50 grid place-items-center text-sky-600 text-xl shrink-0">
+        👩‍🏫
+      </div>
+      <div class="flex-1 min-w-0">
+        <h3 class="font-bold group-hover:text-brand-600">Staff report</h3>
+        <p class="text-sm text-slate-500 mt-1">
+          Total staff, role distribution, active vs on-leave vs resigned, total salary obligation.
+        </p>
+      </div>
+    </div>
+  </a>
+</div>
+
+{% endblock %}

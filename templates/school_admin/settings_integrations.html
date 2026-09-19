@@ -1,0 +1,107 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Integrations{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.settings_page') }}" class="hover:text-brand-600">Settings</a>
+  / Integrations
+{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('school_admin.settings_page') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to settings
+</a>
+
+<form method="POST" class="max-w-3xl space-y-6">
+
+  <!-- Paystack -->
+  <div class="bg-white rounded-2xl border border-slate-100 p-6 sm:p-8">
+    <div class="flex items-start gap-3">
+      <div class="w-10 h-10 rounded-xl bg-emerald-50 grid place-items-center text-emerald-600 shrink-0 font-bold text-sm">
+        ₦
+      </div>
+      <div class="flex-1">
+        <h2 class="font-bold">Paystack</h2>
+        <p class="text-sm text-slate-500 mt-0.5">
+          Accept online fee payments from parents.
+        </p>
+      </div>
+      {% if settings.paystack_public_key %}
+        <span class="text-xs font-semibold px-2 py-1 rounded bg-green-50 text-green-700">● Connected</span>
+      {% else %}
+        <span class="text-xs font-semibold px-2 py-1 rounded bg-amber-50 text-amber-700">Not configured</span>
+      {% endif %}
+    </div>
+
+    <div class="mt-6 space-y-4">
+      <div>
+        <label class="text-sm font-semibold text-slate-700">Public key</label>
+        <input type="text" name="paystack_public_key"
+               value="{{ '••••••' + settings.paystack_public_key[-6:] if settings.paystack_public_key else '' }}"
+               class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                      focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none font-mono text-sm"
+               placeholder="pk_live_...">
+        <p class="mt-1 text-xs text-slate-500">
+          Starts with pk_test_ or pk_live_. The full key is never shown after saving.
+        </p>
+      </div>
+
+      <div>
+        <label class="text-sm font-semibold text-slate-700">Secret key</label>
+        <input type="text" name="paystack_secret_key"
+               value="{{ '••••••' + settings.paystack_secret_key[-6:] if settings.paystack_secret_key else '' }}"
+               class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                      focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none font-mono text-sm"
+               placeholder="sk_live_...">
+        <p class="mt-1 text-xs text-slate-500">
+          Used server-side for webhook verification and transaction lookup.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- SMS -->
+  <div class="bg-white rounded-2xl border border-slate-100 p-6 sm:p-8">
+    <div class="flex items-start gap-3">
+      <div class="w-10 h-10 rounded-xl bg-purple-50 grid place-items-center text-purple-600 shrink-0">📱</div>
+      <div class="flex-1">
+        <h2 class="font-bold">SMS provider</h2>
+        <p class="text-sm text-slate-500 mt-0.5">
+          Send SMS alerts to parents. Optional.
+        </p>
+      </div>
+      {% if settings.sms_api_key %}
+        <span class="text-xs font-semibold px-2 py-1 rounded bg-green-50 text-green-700">● Connected</span>
+      {% else %}
+        <span class="text-xs font-semibold px-2 py-1 rounded bg-slate-100 text-slate-600">Optional</span>
+      {% endif %}
+    </div>
+
+    <div class="mt-6">
+      <label class="text-sm font-semibold text-slate-700">SMS API key</label>
+      <input type="text" name="sms_api_key"
+             value="{{ '••••••' + settings.sms_api_key[-6:] if settings.sms_api_key else '' }}"
+             class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                    focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none font-mono text-sm"
+             placeholder="Your SMS provider API key">
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-100 p-6 flex flex-wrap gap-3">
+    {% if current_user.role == 'school_admin' %}
+      <button class="px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold">
+        Save integrations
+      </button>
+      <a href="{{ url_for('school_admin.settings_page') }}"
+         class="px-5 py-3 rounded-xl border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50">
+        Cancel
+      </a>
+    {% else %}
+      <div class="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800 w-full">
+        Only school admins can modify integrations.
+      </div>
+    {% endif %}
+  </div>
+</form>
+
+{% endblock %}

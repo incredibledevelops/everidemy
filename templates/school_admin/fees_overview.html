@@ -1,0 +1,193 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Fees & Invoices{% endblock %}
+{% block breadcrumb %}Fees & Invoices{% endblock %}
+
+{% block topbar_action %}
+  <a href="{{ url_for('school_admin.fee_structure_new') }}"
+     class="hidden sm:inline-flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700
+            text-white text-sm font-semibold px-3.5 py-2 rounded-lg transition shadow-sm">
+    + New fee structure
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<!-- =========================
+     TERM SELECTOR + STATS
+     ========================= -->
+<div class="bg-white rounded-2xl border border-slate-100 p-5">
+  <form method="GET" class="grid sm:grid-cols-4 gap-3 items-end">
+    <div>
+      <label class="text-xs uppercase font-semibold text-slate-500">Term</label>
+      <select name="term" onchange="this.form.submit()"
+              class="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200
+                     focus:border-brand-500 outline-none bg-white">
+        {% for key, label in terms %}
+          <option value="{{ key }}" {{ 'selected' if term == key }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="text-xs uppercase font-semibold text-slate-500">Academic year</label>
+      <input type="text" name="academic_year" value="{{ academic_year }}"
+             onchange="this.form.submit()"
+             class="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200
+                    focus:border-brand-500 outline-none">
+    </div>
+    <div class="sm:col-span-2 flex gap-2 justify-end">
+      <a href="{{ url_for('school_admin.invoices_list', term=term, academic_year=academic_year) }}"
+         class="inline-flex items-center gap-1.5 bg-white border border-slate-200 hover:border-slate-300
+                text-slate-700 text-sm font-semibold px-4 py-2.5 rounded-lg">
+        📄 All invoices
+      </a>
+      <a href="{{ url_for('school_admin.payments_list') }}"
+         class="inline-flex items-center gap-1.5 bg-white border border-slate-200 hover:border-slate-300
+                text-slate-700 text-sm font-semibold px-4 py-2.5 rounded-lg">
+        💰 Payments log
+      </a>
+    </div>
+  </form>
+</div>
+
+
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Expected</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ format_money(stats.expected) }}</p>
+    <p class="mt-1 text-xs text-slate-500">{{ stats.total_invoiced }} invoices</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Collected</p>
+    <p class="mt-2 text-3xl font-extrabold text-green-600">{{ format_money(stats.collected) }}</p>
+    <p class="mt-1 text-xs text-green-600 font-semibold">{{ stats.collection_pct }}% collected</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Outstanding</p>
+    <p class="mt-2 text-3xl font-extrabold text-red-600">
+      {{ format_money(stats.expected - stats.collected) }}
+    </p>
+    <p class="mt-1 text-xs text-slate-500">{{ stats.total_unpaid }} unpaid</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Fully paid</p>
+    <p class="mt-2 text-3xl font-extrabold text-brand-600">{{ stats.total_paid }}</p>
+    <p class="mt-1 text-xs text-slate-500">of {{ stats.total_invoiced }}</p>
+  </div>
+</div>
+
+
+<!-- =========================
+     FEE STRUCTURES
+     ========================= -->
+<div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+  <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+    <div>
+      <h2 class="font-bold">Fee structures</h2>
+      <p class="text-sm text-slate-500 mt-0.5">{{ dict(terms)[term] }} · {{ academic_year }}</p>
+    </div>
+    <a href="{{ url_for('school_admin.fee_structure_new') }}"
+       class="inline-flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white
+              text-sm font-semibold px-4 py-2 rounded-lg">
+      + New structure
+    </a>
+  </div>
+
+  {% if structures %}
+    <div class="divide-y divide-slate-100">
+      {% for s in structures %}
+        <div class="p-5 flex flex-col sm:flex-row gap-4 sm:items-center">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-3 flex-wrap">
+              <p class="font-semibold truncate">{{ s.name }}</p>
+              {% if s._class %}
+                <span class="text-xs font-semibold px-2 py-0.5 rounded bg-brand-50 text-brand-700">
+                  {{ s._class.name }}
+                </span>
+              {% else %}
+                <span class="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                  All classes
+                </span>
+              {% endif %}
+            </div>
+            <p class="text-xs text-slate-500 mt-1">
+              {{ s.items|length }} item{{ 's' if s.items|length != 1 }} · 
+              Total: <strong>{{ format_money(s.total) }}</strong>
+              {% if s.due_date %} · Due {{ s.due_date.strftime('%b %d, %Y') }}{% endif %}
+            </p>
+          </div>
+
+          <div class="flex flex-wrap gap-3 text-xs">
+            <div class="text-center px-3 py-1.5 rounded-lg bg-slate-50">
+              <p class="text-slate-500">Invoices</p>
+              <p class="font-bold">{{ s._invoice_count }}</p>
+            </div>
+            <div class="text-center px-3 py-1.5 rounded-lg bg-green-50">
+              <p class="text-green-700">Paid</p>
+              <p class="font-bold text-green-700">{{ s._paid_count }}</p>
+            </div>
+            <div class="text-center px-3 py-1.5 rounded-lg bg-emerald-50">
+              <p class="text-emerald-700">Collected</p>
+              <p class="font-bold text-emerald-700">{{ format_money(s._collected) }}</p>
+            </div>
+          </div>
+
+          <a href="{{ url_for('school_admin.fee_structure_detail', structure_id=s._id) }}"
+             class="shrink-0 px-4 py-2 text-sm font-semibold rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700">
+            Manage →
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="p-16 text-center">
+      <div class="w-16 h-16 mx-auto rounded-2xl bg-brand-50 grid place-items-center text-brand-600 text-2xl">
+        💳
+      </div>
+      <p class="mt-4 font-semibold text-slate-700">No fee structures for {{ dict(terms)[term] }}</p>
+      <p class="mt-1 text-sm text-slate-500">Create one to start generating invoices for students.</p>
+      <a href="{{ url_for('school_admin.fee_structure_new') }}"
+         class="mt-4 inline-block px-4 py-2 text-sm font-semibold rounded-lg bg-brand-600 hover:bg-brand-700 text-white">
+        + New fee structure
+      </a>
+    </div>
+  {% endif %}
+</div>
+
+
+<!-- =========================
+     RECENT PAYMENTS
+     ========================= -->
+{% if recent_payments %}
+<div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+  <div class="p-5 border-b border-slate-100 flex items-center justify-between">
+    <h2 class="font-bold">Recent payments</h2>
+    <a href="{{ url_for('school_admin.payments_list') }}"
+       class="text-brand-600 text-sm font-semibold hover:underline">View all →</a>
+  </div>
+  <div class="divide-y divide-slate-100">
+    {% for p in recent_payments %}
+      <div class="p-4 flex items-center gap-3">
+        <div class="w-9 h-9 rounded-lg bg-emerald-50 grid place-items-center text-emerald-600 shrink-0">
+          💰
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="font-semibold text-sm truncate">
+            {{ p._student.first_name if p._student else '—' }}
+            {{ p._student.last_name if p._student else '' }}
+          </p>
+          <p class="text-xs text-slate-500">
+            {{ p.channel|capitalize }} ·
+            {{ p.paid_at.strftime('%b %d, %H:%M') if p.paid_at }}
+            {% if p.reference %} · {{ p.reference }}{% endif %}
+          </p>
+        </div>
+        <span class="font-bold text-sm text-green-700 shrink-0">
+          {{ format_money(p.amount) }}
+        </span>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}

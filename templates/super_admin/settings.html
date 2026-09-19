@@ -1,0 +1,63 @@
+{% extends "super_admin/base.html" %}
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+<div class="grid lg:grid-cols-2 gap-6">
+  <div class="bg-white rounded-2xl border border-slate-100 p-6">
+    <h2 class="font-bold">Pricing plan</h2>
+    <p class="text-sm text-slate-500 mt-1">Edit in <code>config.py</code>.</p>
+    <ul class="mt-4 divide-y divide-slate-100 text-sm">
+      {% for key, p in plans.items() %}
+      <li class="py-3 flex items-center justify-between">
+        <span class="font-semibold">{{ p.name }}</span>
+        <span class="text-slate-500">{{ format_money(p.price) }} / month · unlimited students</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-100 p-6">
+    <h2 class="font-bold">Paystack</h2>
+    <p class="text-sm text-slate-500 mt-1">Configure keys in <code>.env</code>.</p>
+    <div class="mt-4 space-y-3 text-sm">
+      <div class="flex items-center justify-between">
+        <span class="text-slate-500">Public key</span>
+        <span class="font-mono text-xs">{{ '•••• ' + (config['PAYSTACK_PUBLIC_KEY'][-6:] if config['PAYSTACK_PUBLIC_KEY'] else 'not set') }}</span>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="text-slate-500">Secret key</span>
+        <span class="font-mono text-xs">{{ '•••• ' + (config['PAYSTACK_SECRET_KEY'][-6:] if config['PAYSTACK_SECRET_KEY'] else 'not set') }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-100 p-6 lg:col-span-2">
+    <h2 class="font-bold">Email (SMTP)</h2>
+    <p class="text-sm text-slate-500 mt-1">Configure in <code>.env</code>.</p>
+    <div class="mt-4 grid sm:grid-cols-2 gap-3 text-sm">
+      <div class="flex items-center justify-between">
+        <span class="text-slate-500">SMTP server</span>
+        <span class="font-mono text-xs">{{ config['MAIL_SERVER'] }}</span>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="text-slate-500">Port</span>
+        <span class="font-mono text-xs">{{ config['MAIL_PORT'] }}</span>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="text-slate-500">Username</span>
+        <span class="font-mono text-xs">{{ config['MAIL_USERNAME'] or 'not set' }}</span>
+      </div>
+      <div class="flex items-center justify-between">
+        <span class="text-slate-500">Password</span>
+        <span class="font-mono text-xs">{{ '•••• (set)' if config['MAIL_PASSWORD'] else 'not set' }}</span>
+      </div>
+    </div>
+    {% if not config['MAIL_USERNAME'] or not config['MAIL_PASSWORD'] %}
+    <p class="mt-4 text-xs bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-3">
+      ⚠️ SMTP credentials aren't configured. Add <code>MAIL_USERNAME</code> and <code>MAIL_PASSWORD</code> to <code>.env</code>, then restart.
+      Emails will be silently skipped until then.
+    </p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

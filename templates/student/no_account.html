@@ -1,0 +1,20 @@
+{% extends "student/base.html" %}
+{% block page_title %}Account Setup Required{% endblock %}
+{% block breadcrumb %}Not linked{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-2xl border border-slate-100 p-16 text-center max-w-2xl mx-auto">
+  <div class="w-16 h-16 mx-auto rounded-2xl bg-amber-50 grid place-items-center text-amber-600 text-2xl">⚠️</div>
+  <h2 class="mt-4 font-bold text-xl">Your account isn't linked yet</h2>
+  <p class="mt-2 text-sm text-slate-500">
+    Your student portal account exists, but the school hasn't linked it to your student record yet.
+  </p>
+  <p class="mt-2 text-sm text-slate-500">
+    Please contact your school admin to complete the link.
+  </p>
+  <a href="{{ url_for('auth.logout') }}"
+     class="mt-6 inline-block px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold">
+    Log out
+  </a>
+</div>
+{% endblock %}

@@ -1,0 +1,214 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Grade entry{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.exams_page') }}" class="hover:text-brand-600">Exams & Grades</a>
+  / Enter
+{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('school_admin.exams_page', term=term, academic_year=academic_year) }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to exams
+</a>
+
+<!-- =========================================================
+     FILTER BAR
+     ========================================================= -->
+<div class="bg-white rounded-2xl border border-slate-100 p-5">
+  <form method="GET" class="grid sm:grid-cols-4 gap-3">
+    <div>
+      <label class="text-xs uppercase font-semibold text-slate-500">Class</label>
+      <select name="class_id" onchange="this.form.submit()"
+              class="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200
+                     focus:border-brand-500 outline-none bg-white">
+        {% if not class_list %}
+          <option>No classes</option>
+        {% else %}
+          {% for c in class_list %}
+            <option value="{{ c._id }}" {{ 'selected' if selected_class_id == c._id|string }}>{{ c.name }}</option>
+          {% endfor %}
+        {% endif %}
+      </select>
+    </div>
+    <div>
+      <label class="text-xs uppercase font-semibold text-slate-500">Subject</label>
+      <select name="subject_id" onchange="this.form.submit()"
+              class="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200
+                     focus:border-brand-500 outline-none bg-white">
+        <option value="">— Select —</option>
+        {% for s in subject_list %}
+          <option value="{{ s._id }}" {{ 'selected' if selected_subject_id == s._id|string }}>{{ s.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="text-xs uppercase font-semibold text-slate-500">Term</label>
+      <select name="term" onchange="this.form.submit()"
+              class="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200
+                     focus:border-brand-500 outline-none bg-white">
+        {% for key, label in terms %}
+          <option value="{{ key }}" {{ 'selected' if term == key }}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="text-xs uppercase font-semibold text-slate-500">Academic year</label>
+      <input type="text" name="academic_year" value="{{ academic_year }}"
+             onchange="this.form.submit()"
+             class="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200
+                    focus:border-brand-500 outline-none">
+    </div>
+  </form>
+</div>
+
+
+{% if not selected_class or not selected_subject %}
+  <div class="bg-white rounded-2xl border border-slate-100 p-16 text-center">
+    <div class="w-16 h-16 mx-auto rounded-2xl bg-brand-50 grid place-items-center text-brand-600 text-2xl">
+      📝
+    </div>
+    <p class="mt-4 font-semibold text-slate-700">Pick a class and subject</p>
+    <p class="mt-1 text-sm text-slate-500">Choose a class and subject above to start entering grades.</p>
+  </div>
+
+{% elif not rows %}
+  <div class="bg-white rounded-2xl border border-slate-100 p-16 text-center">
+    <div class="w-16 h-16 mx-auto rounded-2xl bg-amber-50 grid place-items-center text-amber-600 text-2xl">👨‍🎓</div>
+    <p class="mt-4 font-semibold text-slate-700">No students in {{ selected_class.name }}</p>
+    <p class="mt-1 text-sm text-slate-500">Assign students to this class before entering grades.</p>
+    <a href="{{ url_for('school_admin.student_new') }}"
+       class="mt-4 inline-block px-4 py-2 text-sm font-semibold rounded-lg bg-brand-600 hover:bg-brand-700 text-white">
+      + Admit student
+    </a>
+  </div>
+
+{% else %}
+
+<!-- =========================================================
+     GRADE ENTRY FORM
+     ========================================================= -->
+<form method="POST" action="{{ url_for('school_admin.grades_save') }}" id="grades-form">
+  <input type="hidden" name="class_id" value="{{ selected_class_id }}">
+  <input type="hidden" name="subject_id" value="{{ selected_subject_id }}">
+  <input type="hidden" name="term" value="{{ term }}">
+  <input type="hidden" name="academic_year" value="{{ academic_year }}">
+
+  <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+
+    <!-- Header -->
+    <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+      <div>
+        <h2 class="font-bold text-lg">
+          {{ selected_class.name }} · {{ selected_subject.name }}
+        </h2>
+        <p class="text-sm text-slate-500 mt-0.5">
+          {{ dict(terms)[term] }} · {{ academic_year }}
+        </p>
+      </div>
+      <div class="flex flex-wrap gap-2 text-xs">
+        <span class="px-2 py-1 rounded bg-slate-100 text-slate-700 font-semibold">
+          CA max: {{ ca_max }}
+        </span>
+        <span class="px-2 py-1 rounded bg-slate-100 text-slate-700 font-semibold">
+          Exam max: {{ exam_max }}
+        </span>
+        <span class="px-2 py-1 rounded bg-brand-50 text-brand-700 font-semibold">
+          Total: 100
+        </span>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm min-w-[720px]">
+        <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
+          <tr>
+            <th class="text-left px-5 py-3 font-semibold">Student</th>
+            <th class="text-center px-3 py-3 font-semibold w-32">CA ({{ ca_max }})</th>
+            <th class="text-center px-3 py-3 font-semibold w-32">Exam ({{ exam_max }})</th>
+            <th class="text-center px-3 py-3 font-semibold w-24">Total</th>
+            <th class="text-center px-3 py-3 font-semibold w-20">Grade</th>
+            <th class="text-left px-5 py-3 font-semibold">Remark</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for row in rows %}
+            <tr data-student-row data-student-id="{{ row.student._id }}">
+              <td class="px-5 py-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-brand-100 grid place-items-center
+                              text-brand-700 font-bold text-xs shrink-0">
+                    {{ row.student.first_name[:1]|upper }}{{ row.student.last_name[:1]|upper if row.student.last_name }}
+                  </div>
+                  <div class="min-w-0">
+                    <p class="font-semibold truncate">
+                      {{ row.student.last_name }} {{ row.student.first_name }}
+                    </p>
+                    <p class="text-xs text-slate-500">{{ row.student.admission_no }}</p>
+                  </div>
+                </div>
+              </td>
+
+              <td class="px-3 py-3">
+                <input type="number" name="ca_{{ row.student._id }}"
+                       value="{{ row.ca }}"
+                       min="0" max="{{ ca_max }}"
+                       data-ca-input
+                       class="w-full text-center px-2 py-2 rounded-lg border border-slate-200
+                              focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none">
+              </td>
+
+              <td class="px-3 py-3">
+                <input type="number" name="exam_{{ row.student._id }}"
+                       value="{{ row.exam }}"
+                       min="0" max="{{ exam_max }}"
+                       data-exam-input
+                       class="w-full text-center px-2 py-2 rounded-lg border border-slate-200
+                              focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none">
+              </td>
+
+              <td class="px-3 py-3 text-center">
+                <span data-total class="font-bold text-lg">{{ row.total if row.total is not none else '—' }}</span>
+              </td>
+
+              <td class="px-3 py-3 text-center">
+                <span data-grade class="inline-block text-xs font-bold px-2 py-1 rounded
+                      {{ 'bg-green-50 text-green-700' if row.grade in ['A1','B2','B3']
+                         else 'bg-blue-50 text-blue-700' if row.grade in ['C4','C5','C6']
+                         else 'bg-amber-50 text-amber-700' if row.grade in ['D7','E8']
+                         else 'bg-red-50 text-red-700' if row.grade == 'F9'
+                         else 'bg-slate-100 text-slate-500' }}">
+                  {{ row.grade or '—' }}
+                </span>
+              </td>
+
+              <td class="px-5 py-3 text-slate-500 text-xs">
+                <span data-remark>{{ row.remark or '—' }}</span>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Sticky save bar -->
+  <div class="sticky bottom-0 -mx-4 sm:-mx-6 lg:-mx-8 mt-4 px-4 sm:px-6 lg:px-8 py-4 bg-white border-t border-slate-100
+              flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between z-10">
+    <div class="text-sm text-slate-500">
+      <span class="font-semibold text-slate-700">{{ rows|length }}</span> students ·
+      Leave both fields blank to clear a grade
+    </div>
+    <button type="submit"
+            class="px-6 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold
+                   shadow-sm shadow-brand-600/20 transition">
+      Save grades
+    </button>
+  </div>
+</form>
+
+<script src="{{ url_for('static', filename='js/grades.js') }}"></script>
+
+{% endif %}
+{% endblock %}

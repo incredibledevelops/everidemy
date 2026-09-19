@@ -1,0 +1,271 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}
+  {{ 'Admit a student' if mode == 'create' else 'Edit ' ~ student.first_name ~ ' ' ~ student.last_name }}
+{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.students_list') }}" class="hover:text-brand-600">Students</a>
+  / {{ 'Admit' if mode == 'create' else 'Edit' }}
+{% endblock %}
+
+
+{% block content %}
+
+<a href="{{ url_for('school_admin.students_list') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to students
+</a>
+
+<div class="max-w-3xl mx-auto bg-white rounded-2xl border border-slate-100 p-6 sm:p-8">
+
+  <!-- Header -->
+  <div class="flex items-start gap-3">
+    <div class="w-11 h-11 rounded-xl grid place-items-center shrink-0
+                {{ 'bg-brand-50 text-brand-600' if mode == 'create' else 'bg-slate-100 text-slate-600' }}">
+      {% if mode == 'create' %}👨‍🎓{% else %}✏️{% endif %}
+    </div>
+    <div>
+      <h2 class="font-bold text-xl">
+        {{ 'Admit a new student' if mode == 'create' else 'Edit student' }}
+      </h2>
+      <p class="mt-1 text-sm text-slate-500">
+        {{ 'Fill in the admission form below.' if mode == 'create'
+           else 'Update the student\'s information.' }}
+      </p>
+    </div>
+  </div>
+
+  <form method="POST" class="mt-8 space-y-8" novalidate>
+    {% if mode == 'edit' %}
+      <input type="hidden" name="_id" value="{{ student._id }}">
+    {% endif %}
+
+    <!-- =========================================================
+         SECTION 1: Personal details
+         ========================================================= -->
+    <div class="space-y-5">
+      <p class="text-xs uppercase tracking-widest font-bold text-slate-400">Personal details</p>
+
+      <div class="grid sm:grid-cols-3 gap-4">
+        <div>
+          <label class="text-sm font-semibold text-slate-700">
+            First name <span class="text-red-500">*</span>
+          </label>
+          <input type="text" name="first_name" value="{{ form.get('first_name','') }}" required
+                 class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                        focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition"
+                 placeholder="Chidera">
+        </div>
+        <div>
+          <label class="text-sm font-semibold text-slate-700">Middle name</label>
+          <input type="text" name="middle_name" value="{{ form.get('middle_name','') }}"
+                 class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                        focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition"
+                 placeholder="Ifeoma">
+        </div>
+        <div>
+          <label class="text-sm font-semibold text-slate-700">
+            Last name <span class="text-red-500">*</span>
+          </label>
+          <input type="text" name="last_name" value="{{ form.get('last_name','') }}" required
+                 class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                        focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition"
+                 placeholder="Eze">
+        </div>
+      </div>
+
+      <div class="grid sm:grid-cols-3 gap-4">
+        <div>
+          <label class="text-sm font-semibold text-slate-700">Gender</label>
+          <div class="mt-2 flex gap-2">
+            {% set g = form.get('gender','') %}
+            <label class="flex-1 cursor-pointer">
+              <input type="radio" name="gender" value="male" class="peer sr-only"
+                     {{ 'checked' if g == 'male' }}>
+              <div class="text-center py-3 rounded-xl border border-slate-200
+                          peer-checked:border-blue-500 peer-checked:bg-blue-50 peer-checked:text-blue-700
+                          text-slate-600 font-semibold text-sm transition">
+                Male
+              </div>
+            </label>
+            <label class="flex-1 cursor-pointer">
+              <input type="radio" name="gender" value="female" class="peer sr-only"
+                     {{ 'checked' if g == 'female' }}>
+              <div class="text-center py-3 rounded-xl border border-slate-200
+                          peer-checked:border-pink-500 peer-checked:bg-pink-50 peer-checked:text-pink-700
+                          text-slate-600 font-semibold text-sm transition">
+                Female
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label class="text-sm font-semibold text-slate-700">Date of birth</label>
+          <input type="date" name="dob" value="{{ form.get('dob','') }}"
+                 class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                        focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition">
+        </div>
+
+        <div>
+          <label class="text-sm font-semibold text-slate-700">Blood group</label>
+          <select name="blood_group"
+                  class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                         focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none
+                         bg-white transition">
+            {% set bg = form.get('blood_group','') %}
+            <option value="">Unknown</option>
+            {% for b in ['A+','A-','B+','B-','AB+','AB-','O+','O-'] %}
+              <option value="{{ b }}" {{ 'selected' if bg == b }}>{{ b }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         SECTION 2: Guardian & contact
+         ========================================================= -->
+    <div class="space-y-5 border-t border-slate-100 pt-8">
+      <p class="text-xs uppercase tracking-widest font-bold text-slate-400">Guardian & contact</p>
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="text-sm font-semibold text-slate-700">Guardian full name</label>
+          <input type="text" name="guardian_name" value="{{ form.get('guardian_name','') }}"
+                 class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                        focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition"
+                 placeholder="Mrs. Ngozi Eze">
+        </div>
+        <div>
+          <label class="text-sm font-semibold text-slate-700">Relationship</label>
+          <select name="relationship"
+                  class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                         focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none
+                         bg-white transition">
+            {% set rel = form.get('relationship','') %}
+            <option value="">Select…</option>
+            {% for r in ['Father', 'Mother', 'Guardian', 'Uncle', 'Aunt', 'Sibling', 'Other'] %}
+              <option value="{{ r }}" {{ 'selected' if rel == r }}>{{ r }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="text-sm font-semibold text-slate-700">Guardian phone</label>
+          <input type="tel" name="guardian_phone" value="{{ form.get('guardian_phone','') }}"
+                 class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                        focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition"
+                 placeholder="+233 20 555 1234">
+        </div>
+        <div>
+          <label class="text-sm font-semibold text-slate-700">Guardian email</label>
+          <input type="email" name="guardian_email" value="{{ form.get('guardian_email','') }}"
+                 class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                        focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition"
+                 placeholder="parent@example.com">
+        </div>
+      </div>
+
+      <div>
+        <label class="text-sm font-semibold text-slate-700">Home address</label>
+        <input type="text" name="address" value="{{ form.get('address','') }}"
+               class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                      focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition"
+               placeholder="12 Independence Ave, Accra">
+      </div>
+    </div>
+
+    <!-- =========================================================
+         SECTION 3: Academic
+         ========================================================= -->
+    <div class="space-y-5 border-t border-slate-100 pt-8">
+      <p class="text-xs uppercase tracking-widest font-bold text-slate-400">Academic</p>
+
+      <div class="grid sm:grid-cols-3 gap-4">
+        <div>
+          <label class="text-sm font-semibold text-slate-700">
+            Admission number <span class="text-red-500">*</span>
+          </label>
+          <input type="text" name="admission_no"
+                 value="{{ form.get('admission_no', next_admission_no) }}" required
+                 class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                        focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none
+                        font-mono text-sm transition">
+          <p class="mt-1 text-xs text-slate-500">
+            {% if mode == 'create' %}Auto-generated. Edit if needed.{% else %}Unique per student.{% endif %}
+          </p>
+        </div>
+
+        <div>
+          <label class="text-sm font-semibold text-slate-700">Class</label>
+          <select name="class_id"
+                  class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                         focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none
+                         bg-white transition">
+            <option value="">Unassigned</option>
+            {% for c in class_list %}
+              <option value="{{ c.id }}"
+                      {{ 'selected' if form.get('class_id') == c.id }}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+          {% if not class_list %}
+            <p class="mt-1 text-xs text-amber-600">
+              No classes set up yet.
+              <a href="#" class="font-semibold underline">Create one →</a>
+            </p>
+          {% endif %}
+        </div>
+
+        <div>
+          <label class="text-sm font-semibold text-slate-700">Status</label>
+          <select name="status"
+                  class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                         focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none
+                         bg-white transition">
+            {% set st = form.get('status','active') %}
+            <option value="active"    {{ 'selected' if st == 'active' }}>Active</option>
+            <option value="withdrawn" {{ 'selected' if st == 'withdrawn' }}>Withdrawn</option>
+            <option value="archived"  {{ 'selected' if st == 'archived' }}>Archived</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label class="text-sm font-semibold text-slate-700">Notes</label>
+        <textarea name="notes" rows="3"
+                  class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                         focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition"
+                  placeholder="Allergies, special needs, or other notes…">{{ form.get('notes','') }}</textarea>
+      </div>
+    </div>
+
+    <!-- =========================================================
+         Actions
+         ========================================================= -->
+    <div class="flex flex-col sm:flex-row gap-3 pt-6 border-t border-slate-100">
+      <button type="submit"
+              class="px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white
+                     font-semibold transition shadow-sm shadow-brand-600/20">
+        {{ 'Admit student' if mode == 'create' else 'Save changes' }}
+      </button>
+
+      {% if mode == 'create' %}
+        <button type="submit" name="save_and_new" value="1"
+                class="px-5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700
+                       font-semibold transition">
+          Save & add another
+        </button>
+      {% endif %}
+
+      <a href="{{ url_for('school_admin.students_list') }}"
+         class="px-5 py-3 rounded-xl border border-slate-200 font-semibold text-slate-700
+                hover:bg-slate-50 text-center transition">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
+
+{% endblock %}

@@ -1,0 +1,103 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Staff report{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.reports_page') }}" class="hover:text-brand-600">Reports</a>
+  / Staff
+{% endblock %}
+
+{% block topbar_action %}
+  <a href="{{ url_for('school_admin.report_staff_csv') }}"
+     class="hidden sm:inline-flex items-center gap-1.5 bg-white border border-slate-200
+            hover:border-slate-300 text-slate-700 text-sm font-semibold px-3.5 py-2 rounded-lg">
+    ⬇️ Download CSV
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('school_admin.reports_page') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to reports
+</a>
+
+<!-- Summary -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Total</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ summary.total }}</p>
+    <p class="mt-1 text-xs text-slate-500">All-time staff</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Active</p>
+    <p class="mt-2 text-3xl font-extrabold text-green-600">{{ summary.active }}</p>
+    <p class="mt-1 text-xs text-slate-500">
+      {{ (summary.active / summary.total * 100)|round|int if summary.total else 0 }}% of total
+    </p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">On leave</p>
+    <p class="mt-2 text-3xl font-extrabold text-amber-600">{{ summary.on_leave }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Resigned</p>
+    <p class="mt-2 text-3xl font-extrabold text-slate-500">{{ summary.resigned }}</p>
+  </div>
+</div>
+
+<!-- Role distribution + salary -->
+<div class="grid lg:grid-cols-2 gap-6">
+
+  <div class="bg-white rounded-2xl border border-slate-100 p-6">
+    <h2 class="font-bold">Role distribution</h2>
+    {% if summary.by_role %}
+      <div class="mt-4 space-y-3">
+        {% set role_styles = {
+          'teacher':      'bg-brand-500',
+          'school_admin': 'bg-purple-500',
+          'accountant':   'bg-emerald-500',
+        } %}
+        {% set total_staff = summary.total if summary.total else 1 %}
+        {% for r in summary.by_role %}
+          <div>
+            <div class="flex items-center justify-between text-sm mb-1.5">
+              <span class="font-semibold capitalize">
+                {{ (r.role or 'unknown')|replace('_',' ') }}
+              </span>
+              <span class="text-slate-500">{{ r.count }}</span>
+            </div>
+            <div class="h-2 rounded-full bg-slate-100 overflow-hidden">
+              <div class="h-full rounded-full {{ role_styles.get(r.role, 'bg-slate-400') }}"
+                   style="width: {{ (r.count / total_staff * 100)|round|int }}%"></div>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="mt-4 text-sm text-slate-500 italic">No staff data yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-100 p-6">
+    <h2 class="font-bold">Salary obligation</h2>
+    <p class="text-xs text-slate-500 mt-0.5">Monthly payroll for active staff</p>
+    <p class="mt-4 text-3xl font-extrabold text-brand-600">
+      {{ format_money(summary.total_salary) }}
+    </p>
+    <p class="mt-2 text-sm text-slate-500">per month</p>
+
+    {% if summary.active %}
+      <div class="mt-6 pt-6 border-t border-slate-100 grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <p class="text-xs uppercase font-semibold text-slate-500">Average salary</p>
+          <p class="mt-1 font-bold">{{ format_money(summary.total_salary // summary.active) }}</p>
+        </div>
+        <div>
+          <p class="text-xs uppercase font-semibold text-slate-500">Per annum</p>
+          <p class="mt-1 font-bold">{{ format_money(summary.total_salary * 12) }}</p>
+        </div>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

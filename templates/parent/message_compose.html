@@ -1,0 +1,332 @@
+{% extends "parent/base.html" %}
+{% block page_title %}New message{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('parent.messages_page') }}" class="hover:text-brand-600">Messages</a>
+  / Compose
+{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('parent.messages_page') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to inbox
+</a>
+
+<div class="max-w-3xl mx-auto bg-white rounded-2xl border border-slate-100 p-6 sm:p-8">
+
+  <!-- =========================================================
+       Header
+       ========================================================= -->
+  <div class="flex items-start gap-3">
+    <div class="w-11 h-11 rounded-xl bg-brand-50 grid place-items-center
+                text-brand-600 text-lg shrink-0">
+      ✉️
+    </div>
+    <div class="min-w-0">
+      <h2 class="font-bold text-xl">New message</h2>
+      <p class="mt-1 text-sm text-slate-500">
+        Send a private message to a teacher, the school admin, or the accountant.
+      </p>
+    </div>
+  </div>
+
+
+  <!-- =========================================================
+       Form
+       ========================================================= -->
+  <form method="POST" id="compose-form" class="mt-8 space-y-5">
+
+    <!-- ============== Recipients ============== -->
+    <div>
+      <div class="flex items-center justify-between">
+        <label class="text-sm font-semibold text-slate-700">
+          Recipients <span class="text-red-500">*</span>
+        </label>
+        <div id="recipient-count" class="text-xs text-slate-500">0 selected</div>
+      </div>
+      <p class="mt-1 text-xs text-slate-500">
+        Select one or more staff members to message.
+      </p>
+
+      {% if recipients %}
+        <!-- Search box -->
+        <div class="mt-3 relative">
+          <input type="text"
+                 id="recipient-search"
+                 placeholder="Search by name or email…"
+                 class="w-full pl-10 pr-3 py-2.5 text-sm rounded-lg border border-slate-200
+                        focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10
+                        outline-none transition">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/>
+            </svg>
+          </span>
+        </div>
+
+        <!-- Recipient list -->
+        <div id="recipient-list"
+             class="mt-3 max-h-64 overflow-y-auto border border-slate-200 rounded-xl p-2 space-y-1">
+          {% set selected = form.get('recipient_ids', []) %}
+          {% for u in recipients %}
+            {% set is_selected = u._id|string in selected %}
+            {% set role_label = u.role|replace('_',' ')|title %}
+            <label class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50
+                          cursor-pointer transition
+                          {{ 'bg-brand-50' if is_selected }}"
+                   data-recipient
+                   data-name="{{ u.name|lower }}"
+                   data-email="{{ (u.email or '')|lower }}"
+                   data-role="{{ (u.role or '')|lower }}">
+
+              <input type="checkbox"
+                     name="recipient_ids"
+                     value="{{ u._id }}"
+                     class="recipient-checkbox rounded border-slate-300 text-brand-600
+                            focus:ring-brand-500"
+                     {{ 'checked' if is_selected }}>
+
+              <div class="w-8 h-8 rounded-lg bg-brand-100 grid place-items-center
+                          text-brand-700 text-xs font-bold shrink-0">
+                {{ u.name[:1]|upper }}
+              </div>
+
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold truncate">{{ u.name }}</p>
+                <p class="text-xs text-slate-500 truncate">
+                  <span class="font-medium text-slate-600">{{ role_label }}</span>
+                  {% if u.email %} · {{ u.email }}{% endif %}
+                </p>
+              </div>
+            </label>
+          {% endfor %}
+
+          <!-- Empty search result -->
+          <div id="recipient-empty"
+               class="hidden px-3 py-8 text-center text-sm text-slate-500">
+            No matches. Try a different search term.
+          </div>
+        </div>
+      {% else %}
+        <p class="mt-2 text-sm text-slate-500 bg-slate-50 rounded-lg p-4">
+          No staff members found. Please contact the school office.
+        </p>
+      {% endif %}
+    </div>
+
+
+    <!-- ============== Subject ============== -->
+    <div>
+      <label class="text-sm font-semibold text-slate-700">Subject</label>
+      <input type="text"
+             name="subject"
+             id="subject-input"
+             value="{{ form.get('subject','') }}"
+             maxlength="120"
+             class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                    focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition"
+             placeholder="e.g. Question about Chidera's homework">
+      <p class="mt-1 text-xs text-slate-500">Optional. Leave blank for a quick chat.</p>
+    </div>
+
+
+    <!-- ============== Body ============== -->
+    <div>
+      <div class="flex items-center justify-between">
+        <label class="text-sm font-semibold text-slate-700">
+          Message <span class="text-red-500">*</span>
+        </label>
+        <span id="body-count" class="text-xs text-slate-500">0</span>
+      </div>
+      <textarea name="body"
+                id="body-input"
+                rows="8"
+                required
+                class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                       focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none
+                       text-sm resize-none transition"
+                placeholder="Type your message…">{{ form.get('body','') }}</textarea>
+      <div class="mt-1.5 flex items-center justify-between text-xs text-slate-400">
+        <span>
+          <kbd class="px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 font-mono">Ctrl</kbd>
+          +
+          <kbd class="px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 font-mono">Enter</kbd>
+          to send
+        </span>
+      </div>
+    </div>
+
+
+    <!-- ============== Actions ============== -->
+    <div class="flex flex-col sm:flex-row gap-3 pt-6 border-t border-slate-100">
+      <button type="submit"
+              id="send-btn"
+              class="px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white
+                     font-semibold transition shadow-sm shadow-brand-600/20
+                     disabled:opacity-50 disabled:cursor-not-allowed">
+        Send message
+      </button>
+      <a href="{{ url_for('parent.messages_page') }}"
+         class="px-5 py-3 rounded-xl border border-slate-200 font-semibold
+                text-slate-700 hover:bg-slate-50 transition text-center">
+        Cancel
+      </a>
+    </div>
+
+  </form>
+</div>
+
+
+<!-- =========================================================
+     SCRIPTS
+     ========================================================= -->
+<script>
+(function () {
+  "use strict";
+
+  const form          = document.getElementById('compose-form');
+  const searchInput   = document.getElementById('recipient-search');
+  const checkboxes    = document.querySelectorAll('.recipient-checkbox');
+  const recipientRows = document.querySelectorAll('[data-recipient]');
+  const countEl       = document.getElementById('recipient-count');
+  const emptyState    = document.getElementById('recipient-empty');
+  const subjectInput  = document.getElementById('subject-input');
+  const bodyInput     = document.getElementById('body-input');
+  const bodyCount     = document.getElementById('body-count');
+  const sendBtn       = document.getElementById('send-btn');
+
+  if (!form) return;
+
+  /* ====================================================
+     Recipient search filter
+     ==================================================== */
+  function filterRecipients() {
+    if (!searchInput) return;
+    const q = searchInput.value.trim().toLowerCase();
+    let visible = 0;
+
+    recipientRows.forEach(row => {
+      const name  = row.dataset.name  || '';
+      const email = row.dataset.email || '';
+      const role  = row.dataset.role  || '';
+      const matches = !q
+        || name.includes(q)
+        || email.includes(q)
+        || role.includes(q);
+      row.classList.toggle('hidden', !matches);
+      if (matches) visible++;
+    });
+
+    if (emptyState) {
+      emptyState.classList.toggle('hidden', visible > 0);
+    }
+  }
+
+  if (searchInput) {
+    searchInput.addEventListener('input', filterRecipients);
+  }
+
+
+  /* ====================================================
+     Recipient count + row highlight
+     ==================================================== */
+  function updateCount() {
+    let n = 0;
+    checkboxes.forEach(cb => {
+      const row = cb.closest('[data-recipient]');
+      if (cb.checked) {
+        n++;
+        if (row) row.classList.add('bg-brand-50');
+      } else {
+        if (row) row.classList.remove('bg-brand-50');
+      }
+    });
+    if (countEl) countEl.textContent = n + ' selected';
+    updateSendState();
+  }
+
+  checkboxes.forEach(cb => cb.addEventListener('change', updateCount));
+  updateCount();
+
+
+  /* ====================================================
+     Send-button enable/disable
+     ==================================================== */
+  function updateSendState() {
+    if (!sendBtn) return;
+    const hasRecipient = Array.from(checkboxes).some(cb => cb.checked);
+    const hasBody      = (bodyInput?.value || '').trim().length > 0;
+    sendBtn.disabled = !(hasRecipient && hasBody);
+  }
+
+  if (bodyInput) {
+    bodyInput.addEventListener('input', () => {
+      if (bodyCount) bodyCount.textContent = bodyInput.value.length;
+      updateSendState();
+    });
+    if (bodyCount) bodyCount.textContent = bodyInput.value.length;
+  }
+
+
+  /* ====================================================
+     Auto-grow the body textarea
+     ==================================================== */
+  if (bodyInput) {
+    const MAX = 320;
+    const grow = () => {
+      bodyInput.style.height = 'auto';
+      bodyInput.style.height = Math.min(bodyInput.scrollHeight, MAX) + 'px';
+    };
+    bodyInput.addEventListener('input', grow);
+    grow();
+  }
+
+
+  /* ====================================================
+     Ctrl / Cmd + Enter to send
+     ==================================================== */
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      if (!sendBtn?.disabled) {
+        e.preventDefault();
+        form.submit();
+      }
+    }
+  });
+
+
+  /* ====================================================
+     Unsaved-changes warning
+     ==================================================== */
+  let dirty = false;
+  form.addEventListener('input',  () => { dirty = true; });
+  form.addEventListener('submit', () => { dirty = false; });
+
+  window.addEventListener('beforeunload', (e) => {
+    const hasRecipient = Array.from(checkboxes).some(cb => cb.checked);
+    const hasBody      = (bodyInput?.value || '').trim().length > 0;
+    const hasSubject   = (subjectInput?.value || '').trim().length > 0;
+    if (dirty && (hasRecipient || hasBody || hasSubject)) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
+
+
+  /* ====================================================
+     Focus the right field on load
+     ==================================================== */
+  setTimeout(() => {
+    const preselected = Array.from(checkboxes).some(cb => cb.checked);
+    if (preselected && bodyInput) {
+      bodyInput.focus({ preventScroll: true });
+    } else if (searchInput) {
+      searchInput.focus({ preventScroll: true });
+    }
+  }, 60);
+
+})();
+</script>
+
+{% endblock %}

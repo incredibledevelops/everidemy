@@ -1,0 +1,86 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}New message{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.messages_page') }}" class="hover:text-brand-600">Messages</a>
+  / Compose
+{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('school_admin.messages_page') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to messages
+</a>
+
+<div class="max-w-3xl mx-auto bg-white rounded-2xl border border-slate-100 p-6 sm:p-8">
+
+  <div class="flex items-start gap-3">
+    <div class="w-11 h-11 rounded-xl bg-brand-50 grid place-items-center text-brand-600 text-lg">✉️</div>
+    <div>
+      <h2 class="font-bold text-xl">New message</h2>
+      <p class="mt-1 text-sm text-slate-500">Send a private message to one or more people.</p>
+    </div>
+  </div>
+
+  <form method="POST" class="mt-8 space-y-5">
+    <div>
+      <label class="text-sm font-semibold text-slate-700">
+        Recipients <span class="text-red-500">*</span>
+      </label>
+      <p class="mt-1 text-xs text-slate-500">Select one or more people to message.</p>
+
+      {% if recipients %}
+        <div class="mt-3 max-h-64 overflow-y-auto border border-slate-200 rounded-xl p-2 space-y-1">
+          {% set selected = form.get('recipient_ids', []) %}
+          {% for u in recipients %}
+            <label class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50 cursor-pointer">
+              <input type="checkbox" name="recipient_ids" value="{{ u._id }}"
+                     class="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                     {{ 'checked' if u._id|string in selected }}>
+              <div class="w-8 h-8 rounded-lg bg-brand-100 grid place-items-center text-brand-700 text-xs font-bold">
+                {{ u.name[:1]|upper }}
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold truncate">{{ u.name }}</p>
+                <p class="text-xs text-slate-500 truncate">
+                  {{ u.role|replace('_',' ')|title }}{% if u.email %} · {{ u.email }}{% endif %}
+                </p>
+              </div>
+            </label>
+          {% endfor %}
+        </div>
+      {% else %}
+        <p class="mt-2 text-sm text-slate-500 bg-slate-50 rounded-lg p-4">
+          No other users in this school yet. Add staff first.
+        </p>
+      {% endif %}
+    </div>
+
+    <div>
+      <label class="text-sm font-semibold text-slate-700">Subject</label>
+      <input type="text" name="subject" value="{{ form.get('subject','') }}"
+             class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                    focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+             placeholder="Re: Chidera's progress">
+    </div>
+
+    <div>
+      <label class="text-sm font-semibold text-slate-700">Message <span class="text-red-500">*</span></label>
+      <textarea name="body" rows="8" required
+                class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                       focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+                placeholder="Type your message…">{{ form.get('body','') }}</textarea>
+    </div>
+
+    <div class="flex gap-3 pt-6 border-t border-slate-100">
+      <button class="px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold">
+        Send message
+      </button>
+      <a href="{{ url_for('school_admin.messages_page') }}"
+         class="px-5 py-3 rounded-xl border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
+{% endblock %}

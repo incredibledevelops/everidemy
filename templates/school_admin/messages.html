@@ -1,0 +1,148 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Messages{% endblock %}
+{% block breadcrumb %}Messages{% endblock %}
+
+{% block topbar_action %}
+  <a href="{{ url_for('school_admin.message_new') }}"
+     class="hidden sm:inline-flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700
+            text-white text-sm font-semibold px-3.5 py-2 rounded-lg transition shadow-sm">
+    + New message
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<div class="grid lg:grid-cols-4 gap-6">
+
+  <!-- Left: quick compose -->
+  <aside class="lg:col-span-1 space-y-6">
+    <a href="{{ url_for('school_admin.message_new') }}"
+       class="block bg-brand-600 hover:bg-brand-700 text-white rounded-2xl p-4 text-center font-semibold transition">
+      ✉️ Compose new
+    </a>
+
+    <div class="bg-white rounded-2xl border border-slate-100 p-4">
+      <p class="text-xs uppercase font-semibold text-slate-500 mb-3">Quick recipients</p>
+      <ul class="space-y-1 text-sm">
+        {% for u in recipients[:8] %}
+          <li>
+            <a href="{{ url_for('school_admin.message_new', to=u._id) }}"
+               class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50">
+              <div class="w-7 h-7 rounded-lg bg-brand-100 grid place-items-center text-brand-700 text-xs font-bold">
+                {{ u.name[:1]|upper }}
+              </div>
+              <span class="truncate">{{ u.name }}</span>
+            </a>
+          </li>
+        {% endfor %}
+      </ul>
+      {% if recipients|length > 8 %}
+        <p class="mt-2 text-xs text-slate-400 text-center">+{{ recipients|length - 8 }} more</p>
+      {% endif %}
+    </div>
+  </aside>
+
+  <!-- Right: thread list -->
+  <div class="lg:col-span-3 space-y-4">
+    <!-- Tabs -->
+    <div class="bg-white rounded-2xl border border-slate-100 p-1 flex">
+      <a href="{{ url_for('school_admin.messages_page', tab='inbox') }}"
+         class="flex-1 text-center py-2 rounded-xl text-sm font-semibold transition
+                {{ 'bg-brand-50 text-brand-700' if tab == 'inbox' else 'text-slate-600 hover:bg-slate-50' }}">
+        Inbox
+      </a>
+      <a href="{{ url_for('school_admin.messages_page', tab='unread') }}"
+         class="flex-1 text-center py-2 rounded-xl text-sm font-semibold transition relative
+                {{ 'bg-brand-50 text-brand-700' if tab == 'unread' else 'text-slate-600 hover:bg-slate-50' }}">
+        Unread
+        {% if total_unread %}
+          <span class="ml-1 inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white">
+            {{ total_unread }}
+          </span>
+        {% endif %}
+      </a>
+      <a href="{{ url_for('school_admin.messages_page', tab='sent') }}"
+         class="flex-1 text-center py-2 rounded-xl text-sm font-semibold transition
+                {{ 'bg-brand-50 text-brand-700' if tab == 'sent' else 'text-slate-600 hover:bg-slate-50' }}">
+        Sent
+      </a>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+      <div class="p-4 border-b border-slate-100">
+        <form method="GET" class="relative">
+          <input type="hidden" name="tab" value="{{ tab }}">
+          <input type="text" name="q" value="{{ search }}" placeholder="Search conversations…"
+                 class="w-full pl-10 pr-3 py-2.5 text-sm rounded-lg border border-slate-200
+                        focus:border-brand-500 outline-none">
+          <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">🔍</span>
+        </form>
+      </div>
+
+      {% if threads %}
+        <div class="divide-y divide-slate-100">
+          {% for t in threads %}
+            <a href="{{ url_for('school_admin.message_thread', thread_id=t.thread_id) }}"
+               class="flex items-start gap-3 p-4 hover:bg-slate-50 transition
+                      {{ 'bg-brand-50/40' if t.unread else '' }}">
+              <!-- Partner avatars -->
+              <div class="flex -space-x-2 shrink-0">
+                {% for p in t.partners[:2] %}
+                  <div class="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-brand-700
+                              grid place-items-center text-white text-xs font-bold border-2 border-white">
+                    {{ p.name[:1]|upper }}
+                  </div>
+                {% endfor %}
+              </div>
+
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <p class="font-semibold truncate
+                            {{ 'text-slate-900' if t.unread else 'text-slate-700' }}">
+                    {% if t.partners %}
+                      {{ t.partners | map(attribute='name') | join(', ') }}
+                    {% else %}
+                      (No recipients)
+                    {% endif %}
+                  </p>
+                  {% if t.unread %}
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white shrink-0">
+                      {{ t.unread }}
+                    </span>
+                  {% endif %}
+                </div>
+                <p class="text-xs text-slate-500 truncate mt-0.5">{{ t.subject }}</p>
+                <p class="text-xs text-slate-400 truncate mt-0.5">
+                  {% set last = t.last_message %}
+                  {{ last.body[:80] }}{% if last.body|length > 80 %}…{% endif %}
+                </p>
+              </div>
+
+              <div class="text-xs text-slate-400 whitespace-nowrap shrink-0">
+                {{ t.updated_at.strftime('%b %d') if t.updated_at }}
+              </div>
+            </a>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="p-16 text-center">
+          <div class="w-16 h-16 mx-auto rounded-2xl bg-brand-50 grid place-items-center text-brand-600 text-2xl">💬</div>
+          <p class="mt-4 font-semibold text-slate-700">
+            {% if tab == 'unread' %}No unread messages
+            {% elif search %}No matches
+            {% else %}No conversations yet{% endif %}
+          </p>
+          <p class="mt-1 text-sm text-slate-500">
+            {% if search %}Try a different search.{% else %}Start a conversation with a teacher or admin.{% endif %}
+          </p>
+          <a href="{{ url_for('school_admin.message_new') }}"
+             class="mt-4 inline-block px-4 py-2 text-sm font-semibold rounded-lg bg-brand-600 hover:bg-brand-700 text-white">
+            + Compose message
+          </a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,87 @@
+{% extends "teacher/base.html" %}
+{% block page_title %}Welcome, {{ g.user.name.split(' ')[0] }} 👋{% endblock %}
+{% block breadcrumb %}Overview{% endblock %}
+
+{% block content %}
+
+<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">My Classes</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ my_classes|length }}</p>
+    <p class="mt-1 text-xs text-slate-500">{{ my_subjects|length }} subjects</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">My Students</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ total_students }}</p>
+    <p class="mt-1 text-xs text-slate-500">Across all classes</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Attendance today</p>
+    <p class="mt-2 text-3xl font-extrabold">
+      {% if attendance_marked %}{{ attendance_pct }}%{% else %}—{% endif %}
+    </p>
+    <p class="mt-1 text-xs text-slate-500">
+      {% if attendance_marked %}Overall present{% else %}Not marked{% endif %}
+    </p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Unread</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ unread_messages }}</p>
+    <p class="mt-1 text-xs text-slate-500">Messages</p>
+  </div>
+</div>
+
+<div class="grid lg:grid-cols-2 gap-6">
+  <div class="bg-white rounded-2xl border border-slate-100 p-6">
+    <h2 class="font-bold">Today's schedule</h2>
+    {% if today_slots %}
+      <ul class="mt-4 divide-y divide-slate-100">
+        {% for s in today_slots %}
+          <li class="py-3 flex items-center gap-3">
+            <div class="text-center w-16 shrink-0">
+              <p class="text-sm font-bold text-brand-600">{{ s.start }}</p>
+              <p class="text-xs text-slate-400">{{ s.end }}</p>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold truncate">{{ s._subject.name if s._subject else '—' }}</p>
+              <p class="text-xs text-slate-500">{{ s._class.name if s._class else '' }}</p>
+            </div>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="mt-4 text-sm text-slate-500">No classes today 🎉</p>
+    {% endif %}
+  </div>
+
+  <div class="bg-white rounded-2xl border border-slate-100 p-6">
+    <h2 class="font-bold">Weekly attendance</h2>
+    <div class="mt-4 flex items-end gap-1.5 h-40">
+      {% for d in weekly_attendance %}
+        <div class="flex-1 flex flex-col items-center gap-2 group">
+          <div class="w-full rounded-t bg-brand-500 transition-all"
+               style="height: {{ d.pct if d.marked else 3 }}%"></div>
+          <span class="text-[10px] text-slate-500">{{ d.label }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="bg-white rounded-2xl border border-slate-100 p-6">
+  <h2 class="font-bold">Recent notices</h2>
+  {% if recent_notices %}
+    <ul class="mt-4 space-y-3">
+      {% for n in recent_notices %}
+        <li class="border-l-2 border-brand-500 pl-3">
+          <p class="font-semibold text-sm truncate">{{ n.title }}</p>
+          <p class="text-xs text-slate-500">{{ n.created_at.strftime('%b %d') if n.created_at }}</p>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="mt-4 text-sm text-slate-500">No notices.</p>
+  {% endif %}
+</div>
+
+{% endblock %}

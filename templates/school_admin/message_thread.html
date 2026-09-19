@@ -1,0 +1,83 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}{{ subject }}{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.messages_page') }}" class="hover:text-brand-600">Messages</a>
+  / {{ subject }}
+{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('school_admin.messages_page') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to messages
+</a>
+
+<div class="max-w-3xl mx-auto bg-white rounded-2xl border border-slate-100 overflow-hidden flex flex-col"
+     style="min-height: 70vh;">
+
+  <!-- Thread header -->
+  <div class="p-5 border-b border-slate-100">
+    <h1 class="font-bold text-lg truncate">{{ subject }}</h1>
+    <div class="mt-1 flex flex-wrap gap-2">
+      {% for p in participants %}
+        <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 text-xs text-slate-700">
+          <span class="w-4 h-4 rounded-full bg-brand-500 grid place-items-center text-white text-[9px] font-bold">
+            {{ p.name[:1]|upper }}
+          </span>
+          {{ p.name }}
+        </span>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Messages -->
+  <div class="flex-1 p-5 space-y-4 overflow-y-auto bg-slate-50/50">
+    {% for m in messages %}
+      <div class="flex gap-3 {{ 'justify-end' if m._is_mine else 'justify-start' }}">
+        {% if not m._is_mine %}
+          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-brand-700
+                      grid place-items-center text-white text-xs font-bold shrink-0">
+            {{ m._sender.name[:1]|upper if m._sender else '?' }}
+          </div>
+        {% endif %}
+
+        <div class="max-w-[75%] {{ 'order-first' if m._is_mine else '' }}">
+          <div class="px-4 py-3 rounded-2xl
+                      {{ 'bg-brand-600 text-white' if m._is_mine else 'bg-white border border-slate-200 text-slate-700' }}">
+            <p class="text-sm whitespace-pre-wrap">{{ m.body }}</p>
+          </div>
+          <p class="text-xs text-slate-400 mt-1 {{ 'text-right' if m._is_mine else '' }}">
+            {{ m._sender.name if m._sender and not m._is_mine else 'You' }}
+            · {{ m.created_at.strftime('%b %d · %H:%M') if m.created_at }}
+          </p>
+        </div>
+
+        {% if m._is_mine %}
+          <div class="w-8 h-8 rounded-full bg-slate-100 grid place-items-center text-slate-600 text-xs font-bold shrink-0">
+            {{ g.user.name[:1]|upper }}
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <!-- Reply box -->
+  <form method="POST"
+        action="{{ url_for('school_admin.message_reply', thread_id=thread_id) }}"
+        class="p-4 border-t border-slate-100 bg-white">
+    <div class="flex gap-2">
+      <textarea name="body" rows="2" required
+                class="flex-1 px-4 py-3 rounded-xl border border-slate-200
+                       focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none
+                       text-sm resize-none"
+                placeholder="Type your reply…"
+                onkeydown="if(event.ctrlKey && event.key === 'Enter') { this.form.submit(); }"></textarea>
+      <button class="px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold text-sm shrink-0 self-end">
+        Send
+      </button>
+    </div>
+    <p class="mt-1 text-xs text-slate-400">Ctrl + Enter to send</p>
+  </form>
+</div>
+
+{% endblock %}

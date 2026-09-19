@@ -1,0 +1,47 @@
+{% extends "super_admin/base.html" %}
+{% block page_title %}Audit Logs{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+  <div class="p-5 border-b border-slate-100">
+    <h2 class="font-bold">Audit logs <span class="text-slate-400 font-normal">({{ total }})</span></h2>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
+        <tr>
+          <th class="text-left px-5 py-3 font-semibold">Action</th>
+          <th class="text-left px-5 py-3 font-semibold">Meta</th>
+          <th class="text-left px-5 py-3 font-semibold">Time</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for log in logs %}
+        <tr>
+          <td class="px-5 py-4"><span class="text-xs font-mono px-2 py-1 rounded bg-slate-100">{{ log.action }}</span></td>
+          <td class="px-5 py-4 text-slate-600 text-xs">{{ log.meta }}</td>
+          <td class="px-5 py-4 text-slate-500 text-xs">{{ log.timestamp.strftime('%b %d, %Y · %H:%M') }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="px-5 py-8 text-center text-slate-500">No audit entries yet.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if total > per_page %}
+  <div class="p-5 flex items-center justify-between border-t border-slate-100 text-sm">
+    <p class="text-slate-500">Page {{ page }} of {{ ((total - 1) // per_page) + 1 }}</p>
+    <div class="flex gap-2">
+      {% if page > 1 %}
+        <a href="{{ url_for('super_admin.audit_logs_page', page=page-1) }}"
+           class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">← Prev</a>
+      {% endif %}
+      {% if page * per_page < total %}
+        <a href="{{ url_for('super_admin.audit_logs_page', page=page+1) }}"
+           class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">Next →</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

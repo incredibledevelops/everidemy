@@ -1,0 +1,207 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Timetable{% endblock %}
+{% block breadcrumb %}Timetable{% endblock %}
+
+{% block content %}
+
+<!-- Class selector + add slot -->
+<div class="bg-white rounded-2xl border border-slate-100 p-5 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+  <form method="GET" class="flex items-center gap-3">
+    <label class="text-sm font-semibold text-slate-700">Class:</label>
+    <select name="class_id" onchange="this.form.submit()"
+            class="px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-brand-500 outline-none bg-white">
+      {% if not class_list %}
+        <option>No classes yet</option>
+      {% else %}
+        {% for c in class_list %}
+          <option value="{{ c._id }}" {{ 'selected' if selected_class_id == c._id|string }}>{{ c.name }}</option>
+        {% endfor %}
+      {% endif %}
+    </select>
+  </form>
+
+  {% if selected_class %}
+    <button onclick="openSlotModal()"
+            class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white
+                   text-sm font-semibold px-4 py-2 rounded-lg">
+      + Add slot
+    </button>
+  {% endif %}
+</div>
+
+
+{% if not selected_class %}
+  <div class="bg-white rounded-2xl border border-slate-100 p-16 text-center">
+    <div class="w-16 h-16 mx-auto rounded-2xl bg-brand-50 grid place-items-center text-brand-600 text-2xl">📅</div>
+    <p class="mt-4 font-semibold text-slate-700">No classes yet</p>
+    <p class="mt-1 text-sm text-slate-500">Create a class first, then add its timetable.</p>
+    <a href="{{ url_for('school_admin.class_new') }}"
+       class="mt-4 inline-block px-4 py-2 text-sm font-semibold rounded-lg bg-brand-600 hover:bg-brand-700 text-white">
+      + Create class
+    </a>
+  </div>
+
+{% else %}
+
+<!-- Weekly grid -->
+<div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+  <div class="p-5 border-b border-slate-100">
+    <h2 class="font-bold">{{ selected_class.name }} — Weekly timetable</h2>
+    <p class="text-sm text-slate-500 mt-0.5">
+      {{ slots|length }} slot{{ 's' if slots|length != 1 }} scheduled
+    </p>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+    {% for day in weekdays %}
+      <div class="p-4">
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-xs uppercase tracking-wider font-bold text-slate-500">{{ weekday_labels[day] }}</p>
+          <span class="text-xs text-slate-400">{{ grid[day]|length }}</span>
+        </div>
+
+        {% if grid[day] %}
+          <div class="space-y-2">
+            {% for s in grid[day] %}
+              <div class="group relative rounded-xl border border-slate-200 p-3 hover:border-brand-400 transition">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="min-w-0">
+                    <p class="text-xs font-mono font-semibold text-brand-600">{{ s.start }}–{{ s.end }}</p>
+                    <p class="mt-1 text-sm font-semibold truncate">
+                      {{ s._subject.name if s._subject else '—' }}
+                    </p>
+                    {% if s._teacher %}
+                      <p class="text-xs text-slate-500 truncate">{{ s._teacher.name }}</p>
+                    {% endif %}
+                    {% if s.room %}
+                      <p class="text-xs text-slate-400 truncate mt-0.5">📍 {{ s.room }}</p>
+                    {% endif %}
+                  </div>
+                  <form method="POST"
+                        action="{{ url_for('school_admin.timetable_delete', slot_id=s._id) }}"
+                        onsubmit="return confirm('Remove this slot?');">
+                    <button class="opacity-0 group-hover:opacity-100 transition
+                                   text-red-600 hover:text-red-700 p-1 rounded">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M6 18L18 6M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  </form>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <button onclick="openSlotModal('{{ day }}')"
+                  class="w-full py-6 rounded-xl border-2 border-dashed border-slate-200
+                         hover:border-brand-400 hover:bg-brand-50/40 text-slate-400
+                         hover:text-brand-600 text-xs font-semibold transition">
+            + Add slot
+          </button>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+{% endif %}
+
+
+<!-- =========================================================
+     SLOT MODAL
+     ========================================================= -->
+<div id="slot-modal" class="hidden fixed inset-0 z-50">
+  <div class="absolute inset-0 bg-ink-900/60 backdrop-blur-sm" onclick="closeSlotModal()"></div>
+
+  <div class="relative min-h-full flex items-center justify-center p-4">
+    <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 sm:p-8"
+         onclick="event.stopPropagation()">
+
+      <div class="flex items-start justify-between">
+        <div>
+          <h3 class="font-bold text-lg">Add timetable slot</h3>
+          <p class="text-sm text-slate-500 mt-0.5">{{ selected_class.name }}</p>
+        </div>
+        <button onclick="closeSlotModal()" class="p-2 rounded-lg hover:bg-slate-100 text-slate-500">✕</button>
+      </div>
+
+      <form method="POST" action="{{ url_for('school_admin.timetable_new') }}" class="mt-6 space-y-4">
+        <input type="hidden" name="class_id" value="{{ selected_class_id }}">
+
+        <div>
+          <label class="text-sm font-semibold text-slate-700">Day</label>
+          <select name="day" required
+                  class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                         focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none bg-white">
+            {% for d in weekdays %}
+              <option value="{{ d }}" id="day-{{ d }}">{{ weekday_labels[d] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="text-sm font-semibold text-slate-700">Start</label>
+            <input type="time" name="start" required value="08:00"
+                   class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                          focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none">
+          </div>
+          <div>
+            <label class="text-sm font-semibold text-slate-700">End</label>
+            <input type="time" name="end" required value="08:45"
+                   class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                          focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="text-sm font-semibold text-slate-700">Subject</label>
+          <select name="subject_id"
+                  class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                         focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none bg-white">
+            <option value="">— Optional —</option>
+            {% for s in subject_list %}
+              <option value="{{ s._id }}">{{ s.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="text-sm font-semibold text-slate-700">Teacher</label>
+          <select name="teacher_id"
+                  class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                         focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none bg-white">
+            <option value="">— Optional —</option>
+            {% for t in teacher_list %}
+              <option value="{{ t._id }}">{{ t.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="text-sm font-semibold text-slate-700">Room</label>
+          <input type="text" name="room"
+                 class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                        focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+                 placeholder="Room 12">
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button type="submit"
+                  class="flex-1 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold">
+            Add to timetable
+          </button>
+          <button type="button" onclick="closeSlotModal()"
+                  class="px-5 py-3 rounded-xl border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50">
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/timetable.js') }}"></script>
+
+{% endblock %}

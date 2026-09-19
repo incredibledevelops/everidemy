@@ -1,0 +1,289 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}School Profile{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.settings_page') }}" class="hover:text-brand-600">Settings</a>
+  / Profile
+{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('school_admin.settings_page') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to settings
+</a>
+
+<div class="grid lg:grid-cols-3 gap-6">
+
+  <!-- ============================================
+       Main form
+       ============================================ -->
+  <div class="lg:col-span-2">
+    <form method="POST"
+          id="profile-form"
+          class="bg-white rounded-2xl border border-slate-100 p-6 sm:p-8 space-y-6">
+      <div>
+        <h2 class="font-bold text-lg">School profile</h2>
+        <p class="text-sm text-slate-500 mt-0.5">
+          Information shown on report cards, receipts, and announcements.
+        </p>
+      </div>
+
+      <div>
+        <label class="text-sm font-semibold text-slate-700">School motto</label>
+        <input type="text" name="motto"
+               id="f-motto"
+               value="{{ settings.motto or '' }}"
+               maxlength="120"
+               class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                      focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+               placeholder="Excellence in learning">
+        <p class="mt-1 text-xs text-slate-500">Appears under your school name.</p>
+      </div>
+
+      <div>
+        <label class="text-sm font-semibold text-slate-700">Year founded</label>
+        <input type="number" name="founded_year"
+               id="f-founded"
+               value="{{ settings.founded_year or '' }}"
+               min="1800" max="2100"
+               class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                      focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+               placeholder="2010">
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="text-sm font-semibold text-slate-700">Timezone</label>
+          <select name="timezone" id="f-timezone"
+                  class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                         focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none bg-white">
+            {% set tz = settings.timezone %}
+            <option value="Africa/Accra"   {{ 'selected' if tz == 'Africa/Accra' }}>Africa/Accra (GMT)</option>
+            <option value="Africa/Lagos"   {{ 'selected' if tz == 'Africa/Lagos' }}>Africa/Lagos (WAT)</option>
+            <option value="Africa/Nairobi" {{ 'selected' if tz == 'Africa/Nairobi' }}>Africa/Nairobi (EAT)</option>
+            <option value="Europe/London"  {{ 'selected' if tz == 'Europe/London' }}>Europe/London</option>
+            <option value="UTC"            {{ 'selected' if tz == 'UTC' }}>UTC</option>
+          </select>
+        </div>
+        <div>
+          <label class="text-sm font-semibold text-slate-700">Currency</label>
+          <input type="text" value="{{ currency_code }}" disabled
+                 class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50
+                        text-slate-500 cursor-not-allowed">
+          <p class="mt-1 text-xs text-slate-500">Set in your Everidemy plan.</p>
+        </div>
+      </div>
+
+      <div class="border-t border-slate-100 pt-6">
+        <h3 class="font-bold mb-4">Address</h3>
+        <div class="space-y-4">
+          <div>
+            <label class="text-sm font-semibold text-slate-700">Street</label>
+            <input type="text" name="street"
+                   id="f-street"
+                   value="{{ settings.address.street or '' }}"
+                   class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                          focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+                   placeholder="12 Independence Ave">
+          </div>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label class="text-sm font-semibold text-slate-700">City</label>
+              <input type="text" name="city"
+                     id="f-city"
+                     value="{{ settings.address.city or '' }}"
+                     class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                            focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+                     placeholder="Accra">
+            </div>
+            <div>
+              <label class="text-sm font-semibold text-slate-700">State / Region</label>
+              <input type="text" name="state"
+                     id="f-state"
+                     value="{{ settings.address.state or '' }}"
+                     class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                            focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+                     placeholder="Greater Accra">
+            </div>
+          </div>
+          <div>
+            <label class="text-sm font-semibold text-slate-700">Country</label>
+            <input type="text" name="country"
+                   id="f-country"
+                   value="{{ settings.address.country or '' }}"
+                   class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                          focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+                   placeholder="Ghana">
+          </div>
+        </div>
+      </div>
+
+      {% if current_user.role == 'school_admin' %}
+        <div class="pt-4 border-t border-slate-100 flex gap-3">
+          <button type="submit"
+                  class="px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold">
+            Save changes
+          </button>
+          <a href="{{ url_for('school_admin.settings_page') }}"
+             class="px-5 py-3 rounded-xl border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50">
+            Cancel
+          </a>
+        </div>
+      {% else %}
+        <div class="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-800">
+          Only school admins can modify settings.
+        </div>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- ============================================
+       Live preview
+       ============================================ -->
+  <aside class="space-y-6 lg:sticky lg:top-24 lg:self-start">
+
+    <div class="bg-white rounded-2xl border border-slate-100 p-6">
+      <h3 class="font-bold text-sm">Live preview</h3>
+      <p class="text-xs text-slate-500 mt-0.5">Updates as you type</p>
+
+      <div class="mt-4 flex items-start gap-3">
+        <div class="w-12 h-12 rounded-xl bg-brand-600 grid place-items-center
+                    text-white font-bold text-lg shrink-0">
+          <span id="p-initials">{{ g.school.name[:1]|upper }}</span>
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="font-semibold truncate">{{ g.school.name }}</p>
+          <p class="text-xs italic mt-0.5 truncate"
+             id="p-motto"
+             data-empty-class="text-slate-400">
+            {{ settings.motto or 'No motto yet' }}
+          </p>
+          <p class="text-xs text-slate-400 mt-1 hidden" id="p-founded"></p>
+        </div>
+      </div>
+
+      <div id="p-address-block"
+           class="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-500 space-y-0.5
+                  {{ 'hidden' if not (settings.address.street or settings.address.city) }}">
+        <p id="p-street">{{ settings.address.street }}</p>
+        <p>
+          <span id="p-city">{{ settings.address.city }}</span><span
+            id="p-state-comma"
+            class="{{ 'hidden' if not (settings.address.city and settings.address.state) }}">, </span><span
+            id="p-state">{{ settings.address.state }}</span>
+        </p>
+        <p id="p-country">{{ settings.address.country }}</p>
+      </div>
+    </div>
+
+    <div class="bg-slate-50 border border-slate-200 rounded-2xl p-6 text-xs text-slate-600">
+      <p class="font-semibold text-slate-700 mb-2">Where this appears:</p>
+      <ul class="space-y-1.5">
+        <li class="flex items-start gap-2"><span class="text-slate-400">•</span> Report cards</li>
+        <li class="flex items-start gap-2"><span class="text-slate-400">•</span> Fee receipts</li>
+        <li class="flex items-start gap-2"><span class="text-slate-400">•</span> Email signatures</li>
+        <li class="flex items-start gap-2"><span class="text-slate-400">•</span> Parent-facing announcements</li>
+      </ul>
+    </div>
+  </aside>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- Element shortcuts ----
+  const form = document.getElementById('profile-form');
+  if (!form) return;
+
+  const fMotto     = document.getElementById('f-motto');
+  const fFounded   = document.getElementById('f-founded');
+  const fStreet    = document.getElementById('f-street');
+  const fCity      = document.getElementById('f-city');
+  const fState     = document.getElementById('f-state');
+  const fCountry   = document.getElementById('f-country');
+
+  const pMotto     = document.getElementById('p-motto');
+  const pFounded   = document.getElementById('p-founded');
+  const pStreet    = document.getElementById('p-street');
+  const pCity      = document.getElementById('p-city');
+  const pState     = document.getElementById('p-state');
+  const pStateComma= document.getElementById('p-state-comma');
+  const pCountry   = document.getElementById('p-country');
+  const pAddressBlk= document.getElementById('p-address-block');
+
+  // ---- Helper ----
+  const trim = (v) => (v || '').trim();
+
+  function setText(el, value, fallback) {
+    if (!el) return;
+    const v = trim(value);
+    if (v) {
+      el.textContent = v;
+      el.classList.remove('text-slate-400');
+    } else {
+      el.textContent = fallback || '';
+      if (fallback) el.classList.add('text-slate-400');
+    }
+  }
+
+  function refresh() {
+    // Motto
+    const motto = trim(fMotto.value);
+    pMotto.textContent = motto || 'No motto yet';
+    if (motto) pMotto.classList.remove('text-slate-400');
+    else       pMotto.classList.add('text-slate-400');
+
+    // Founded year
+    const founded = trim(fFounded.value);
+    if (founded) {
+      pFounded.textContent = 'Est. ' + founded;
+      pFounded.classList.remove('hidden');
+    } else {
+      pFounded.classList.add('hidden');
+    }
+
+    // Address
+    const street  = trim(fStreet.value);
+    const city    = trim(fCity.value);
+    const state   = trim(fState.value);
+    const country = trim(fCountry.value);
+
+    pStreet.textContent  = street;
+    pCity.textContent    = city;
+    pCountry.textContent = country;
+    pState.textContent   = state;
+
+    // Show/hide the comma between city and state
+    if (city && state) pStateComma.classList.remove('hidden');
+    else               pStateComma.classList.add('hidden');
+
+    // Show/hide the whole address block
+    if (street || city || state || country) {
+      pAddressBlk.classList.remove('hidden');
+    } else {
+      pAddressBlk.classList.add('hidden');
+    }
+  }
+
+  // ---- Bind listeners ----
+  [fMotto, fFounded, fStreet, fCity, fState, fCountry].forEach(function (el) {
+    if (!el) return;
+    el.addEventListener('input', refresh);
+    el.addEventListener('change', refresh);
+  });
+
+  // Run once on load in case the inputs were pre-filled
+  refresh();
+
+  // ---- Optional: warn on unsaved changes ----
+  let dirty = false;
+  form.addEventListener('input', () => { dirty = true; });
+  form.addEventListener('submit', () => { dirty = false; });
+  window.addEventListener('beforeunload', (e) => {
+    if (dirty) { e.preventDefault(); e.returnValue = ''; }
+  });
+})();
+</script>
+
+{% endblock %}

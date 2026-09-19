@@ -1,0 +1,157 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Attendance report{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.reports_page') }}" class="hover:text-brand-600">Reports</a>
+  / Attendance
+{% endblock %}
+
+{% block topbar_action %}
+  <a href="{{ url_for('school_admin.report_attendance_csv', **date_range) }}"
+     class="hidden sm:inline-flex items-center gap-1.5 bg-white border border-slate-200
+            hover:border-slate-300 text-slate-700 text-sm font-semibold px-3.5 py-2 rounded-lg">
+    ⬇️ Download CSV
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('school_admin.reports_page') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to reports
+</a>
+
+<!-- Date range filter -->
+<div class="bg-white rounded-2xl border border-slate-100 p-5">
+  <form method="GET" class="grid sm:grid-cols-3 gap-3 items-end">
+    <div>
+      <label class="text-xs uppercase font-semibold text-slate-500">From</label>
+      <input type="date" name="from" value="{{ date_range.from }}"
+             class="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200
+                    focus:border-brand-500 outline-none">
+    </div>
+    <div>
+      <label class="text-xs uppercase font-semibold text-slate-500">To</label>
+      <input type="date" name="to" value="{{ date_range.to }}"
+             class="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200
+                    focus:border-brand-500 outline-none">
+    </div>
+    <button class="px-4 py-2.5 text-sm font-semibold rounded-lg bg-slate-900 text-white">
+      Update
+    </button>
+  </form>
+</div>
+
+<!-- Summary -->
+<div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
+  <div class="bg-white rounded-2xl p-5 border border-slate-100 col-span-2 lg:col-span-1">
+    <p class="text-xs uppercase font-semibold text-slate-500">Overall %</p>
+    <p class="mt-2 text-3xl font-extrabold
+              {{ 'text-green-600' if summary.pct >= 90 else 'text-amber-600' if summary.pct >= 75 else 'text-red-600' }}">
+      {{ summary.pct }}%
+    </p>
+    <p class="mt-1 text-xs text-slate-500">{{ summary.sessions }} sessions</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-green-700">Present</p>
+    <p class="mt-2 text-3xl font-extrabold text-green-600">{{ summary.counts.present }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-red-700">Absent</p>
+    <p class="mt-2 text-3xl font-extrabold text-red-600">{{ summary.counts.absent }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-amber-700">Late</p>
+    <p class="mt-2 text-3xl font-extrabold text-amber-600">{{ summary.counts.late }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-blue-700">Excused</p>
+    <p class="mt-2 text-3xl font-extrabold text-blue-600">{{ summary.counts.excused }}</p>
+  </div>
+</div>
+
+<!-- Daily trend -->
+<div class="bg-white rounded-2xl border border-slate-100 p-6">
+  <h2 class="font-bold">Daily attendance — last 30 days</h2>
+  <div class="mt-6 flex items-end gap-1 h-48">
+    {% for t in trend %}
+      <div class="flex-1 flex flex-col items-center gap-2 group"
+           title="{{ t.label }} — {{ t.pct }}%">
+        <div class="w-full rounded-t transition-all
+                    {{ 'bg-green-500' if t.pct >= 90
+                       else 'bg-amber-500' if t.pct >= 75
+                       else 'bg-red-400' if t.marked
+                       else 'bg-slate-100' }}"
+             style="height: {{ t.pct if t.marked else 3 }}%">
+        </div>
+        {% if loop.index % 5 == 1 %}
+          <span class="text-[9px] text-slate-400 whitespace-nowrap">{{ t.label.split(' ')[1] }}</span>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  <div class="mt-3 flex items-center justify-center gap-4 text-xs text-slate-500">
+    <span class="flex items-center gap-1.5">
+      <span class="w-2.5 h-2.5 rounded bg-green-500"></span> ≥90%
+    </span>
+    <span class="flex items-center gap-1.5">
+      <span class="w-2.5 h-2.5 rounded bg-amber-500"></span> 75–89%
+    </span>
+    <span class="flex items-center gap-1.5">
+      <span class="w-2.5 h-2.5 rounded bg-red-400"></span> &lt;75%
+    </span>
+    <span class="flex items-center gap-1.5">
+      <span class="w-2.5 h-2.5 rounded bg-slate-100"></span> No session
+    </span>
+  </div>
+</div>
+
+<!-- By class -->
+<div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+  <div class="p-5 border-b border-slate-100">
+    <h2 class="font-bold">Per-class breakdown</h2>
+  </div>
+
+  {% if by_class %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm min-w-[700px]">
+        <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
+          <tr>
+            <th class="text-left px-5 py-3 font-semibold">Class</th>
+            <th class="text-center px-3 py-3 font-semibold">Present</th>
+            <th class="text-center px-3 py-3 font-semibold">Absent</th>
+            <th class="text-center px-3 py-3 font-semibold">Late</th>
+            <th class="text-center px-3 py-3 font-semibold">Excused</th>
+            <th class="text-center px-3 py-3 font-semibold">Total</th>
+            <th class="text-right px-5 py-3 font-semibold">%</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for c in by_class %}
+            <tr class="hover:bg-slate-50">
+              <td class="px-5 py-4 font-semibold">{{ c.class_name }}</td>
+              <td class="px-3 py-4 text-center text-green-700 font-semibold">{{ c.present }}</td>
+              <td class="px-3 py-4 text-center text-red-700 font-semibold">{{ c.absent }}</td>
+              <td class="px-3 py-4 text-center text-amber-700 font-semibold">{{ c.late }}</td>
+              <td class="px-3 py-4 text-center text-blue-700 font-semibold">{{ c.excused }}</td>
+              <td class="px-3 py-4 text-center text-slate-600">{{ c.total }}</td>
+              <td class="px-5 py-4 text-right">
+                <span class="font-bold
+                            {{ 'text-green-600' if c.pct >= 90
+                               else 'text-amber-600' if c.pct >= 75
+                               else 'text-red-600' }}">
+                  {{ c.pct }}%
+                </span>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="p-8 text-center text-sm text-slate-500 italic">
+      No attendance data in this range.
+    </p>
+  {% endif %}
+</div>
+
+{% endblock %}

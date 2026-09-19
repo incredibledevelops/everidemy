@@ -1,0 +1,114 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}{{ 'Create a class' if mode == 'create' else 'Edit ' ~ klass.name }}{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.classes_list') }}" class="hover:text-brand-600">Classes</a>
+  / {{ 'New' if mode == 'create' else 'Edit' }}
+{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('school_admin.classes_list') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to classes
+</a>
+
+<div class="max-w-2xl mx-auto bg-white rounded-2xl border border-slate-100 p-6 sm:p-8">
+  <div class="flex items-start gap-3">
+    <div class="w-11 h-11 rounded-xl bg-brand-50 grid place-items-center text-brand-600 text-lg">🏛️</div>
+    <div>
+      <h2 class="font-bold text-xl">{{ 'Create a new class' if mode == 'create' else 'Edit class' }}</h2>
+      <p class="mt-1 text-sm text-slate-500">
+        {{ 'Set up a class group, assign a form teacher, and define capacity.' if mode == 'create'
+           else 'Update the class details.' }}
+      </p>
+    </div>
+  </div>
+
+  <form method="POST" class="mt-8 space-y-5">
+    {% if mode == 'edit' %}
+      <input type="hidden" name="_id" value="{{ klass._id }}">
+    {% endif %}
+
+    <div>
+      <label class="text-sm font-semibold text-slate-700">Class name <span class="text-red-500">*</span></label>
+      <input type="text" name="name" value="{{ form.get('name','') }}" required
+             class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                    focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+             placeholder="JSS 1A">
+    </div>
+
+    <div class="grid sm:grid-cols-2 gap-4">
+      <div>
+        <label class="text-sm font-semibold text-slate-700">Level</label>
+        <input type="text" name="level" value="{{ form.get('level','') }}"
+               class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                      focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+               placeholder="JSS 1">
+      </div>
+      <div>
+        <label class="text-sm font-semibold text-slate-700">Section</label>
+        <input type="text" name="section" value="{{ form.get('section','') }}"
+               class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                      focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+               placeholder="A">
+      </div>
+    </div>
+
+    <div class="grid sm:grid-cols-2 gap-4">
+      <div>
+        <label class="text-sm font-semibold text-slate-700">Capacity</label>
+        <input type="number" name="capacity" value="{{ form.get('capacity','') }}" min="1" max="500"
+               class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                      focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+               placeholder="40">
+      </div>
+      <div>
+        <label class="text-sm font-semibold text-slate-700">Academic year</label>
+        <input type="text" name="academic_year" value="{{ form.get('academic_year','2024/2025') }}"
+               class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                      focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
+               placeholder="2024/2025">
+      </div>
+    </div>
+
+    <div>
+      <label class="text-sm font-semibold text-slate-700">Form teacher</label>
+      <select name="teacher_id"
+              class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                     focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none bg-white">
+        <option value="">Unassigned</option>
+        {% for t in teacher_list %}
+          <option value="{{ t.id }}"
+                  {{ 'selected' if form.get('teacher_id') == t.id }}>{{ t.name }}</option>
+        {% endfor %}
+      </select>
+      {% if not teacher_list %}
+        <p class="mt-1 text-xs text-amber-600">
+          No staff members yet.
+          <a href="{{ url_for('school_admin.staff_new') }}" class="font-semibold underline">Add staff →</a>
+        </p>
+      {% endif %}
+    </div>
+
+    <div>
+      <label class="text-sm font-semibold text-slate-700">Status</label>
+      <select name="status"
+              class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                     focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none bg-white">
+        {% set st = form.get('status','active') %}
+        <option value="active"   {{ 'selected' if st == 'active' }}>Active</option>
+        <option value="archived" {{ 'selected' if st == 'archived' }}>Archived</option>
+      </select>
+    </div>
+
+    <div class="flex gap-3 pt-4 border-t border-slate-100">
+      <button class="px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold">
+        {{ 'Create class' if mode == 'create' else 'Save changes' }}
+      </button>
+      <a href="{{ url_for('school_admin.classes_list') }}"
+         class="px-5 py-3 rounded-xl border border-slate-200 font-semibold text-slate-700 hover:bg-slate-50">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
+{% endblock %}

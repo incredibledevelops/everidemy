@@ -1,0 +1,202 @@
+{% extends "teacher/base.html" %}
+{% block page_title %}{{ subject }}{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('teacher.messages_page') }}" class="hover:text-brand-600">Messages</a>
+  / <span class="truncate">{{ subject }}</span>
+{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('teacher.messages_page') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to inbox
+</a>
+
+<div class="max-w-3xl mx-auto bg-white rounded-2xl border border-slate-100 overflow-hidden flex flex-col"
+     style="min-height: 70vh;">
+
+  <!-- =========================================================
+       Thread header
+       ========================================================= -->
+  <div class="p-5 border-b border-slate-100 shrink-0">
+    <div class="flex items-start gap-3">
+      <div class="w-10 h-10 rounded-xl bg-brand-50 grid place-items-center
+                  text-brand-600 text-lg shrink-0">
+        💬
+      </div>
+      <div class="min-w-0 flex-1">
+        <h1 class="font-bold text-lg truncate" title="{{ subject }}">{{ subject }}</h1>
+        <p class="text-xs text-slate-500 mt-0.5">
+          {{ messages|length }} message{{ 's' if messages|length != 1 }}
+          {% if participants %}
+            · with {{ participants|length }} participant{{ 's' if participants|length != 1 }}
+          {% endif %}
+        </p>
+      </div>
+    </div>
+
+    <!-- Participant chips -->
+    {% if participants %}
+      <div class="mt-3 flex flex-wrap gap-1.5">
+        {% for p in participants %}
+          <span class="inline-flex items-center gap-1.5 pl-1 pr-2 py-0.5 rounded-full
+                       bg-slate-100 text-xs text-slate-700">
+            <span class="w-4 h-4 rounded-full bg-gradient-to-br from-brand-500 to-brand-700
+                         grid place-items-center text-white text-[9px] font-bold shrink-0">
+              {{ p.name[:1]|upper }}
+            </span>
+            <span class="truncate max-w-[120px]">{{ p.name }}</span>
+          </span>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+
+
+  <!-- =========================================================
+       Messages list
+       ========================================================= -->
+  <div id="messages-scroll"
+       class="flex-1 p-4 sm:p-5 space-y-4 overflow-y-auto bg-slate-50/50">
+
+    {% for m in messages %}
+      <div class="flex gap-2.5 {{ 'justify-end' if m._is_mine else 'justify-start' }}"
+           data-msg-id="{{ m._id }}">
+
+        {% if not m._is_mine %}
+          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-brand-700
+                      grid place-items-center text-white text-xs font-bold shrink-0">
+            {{ m._sender.name[:1]|upper if m._sender else '?' }}
+          </div>
+        {% endif %}
+
+        <div class="max-w-[75%] {{ 'order-first' if m._is_mine else '' }}">
+          <div class="px-4 py-3 rounded-2xl break-words
+                      {{ 'bg-brand-600 text-white rounded-tr-sm'
+                         if m._is_mine
+                         else 'bg-white border border-slate-200 text-slate-700 rounded-tl-sm' }}">
+            <p class="text-sm whitespace-pre-wrap">{{ m.body }}</p>
+          </div>
+          <p class="text-xs text-slate-400 mt-1 {{ 'text-right' if m._is_mine else '' }}">
+            {% if m._is_mine %}
+              You
+            {% elif m._sender %}
+              {{ m._sender.name }}
+            {% else %}
+              Unknown
+            {% endif %}
+            ·
+            {% if m.created_at %}
+              {% set today = now.replace(hour=0, minute=0, second=0, microsecond=0) %}
+              {% if m.created_at >= today %}
+                {{ m.created_at.strftime('%H:%M') }}
+              {% else %}
+                {{ m.created_at.strftime('%b %d · %H:%M') }}
+              {% endif %}
+            {% endif %}
+          </p>
+        </div>
+
+        {% if m._is_mine %}
+          <div class="w-8 h-8 rounded-full bg-slate-100 grid place-items-center
+                      text-slate-600 text-xs font-bold shrink-0">
+            {{ g.user.name[:1]|upper if g.user else 'Y' }}
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+
+  </div>
+
+
+  <!-- =========================================================
+       Reply box
+       ========================================================= -->
+  <form method="POST"
+        action="{{ url_for('teacher.message_reply', thread_id=thread_id) }}"
+        id="reply-form"
+        class="p-4 border-t border-slate-100 bg-white shrink-0">
+
+    <div class="flex gap-2 items-end">
+      <textarea name="body"
+                id="reply-body"
+                rows="2"
+                required
+                placeholder="Type your reply…"
+                class="flex-1 px-4 py-3 rounded-xl border border-slate-200
+                       focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none
+                       text-sm resize-none transition"
+                onkeydown="if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { this.form.submit(); }"></textarea>
+
+      <button type="submit"
+              class="px-4 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-700
+                     text-white font-semibold text-sm shrink-0 self-end transition
+                     shadow-sm shadow-brand-600/20">
+        Send
+      </button>
+    </div>
+
+    <div class="mt-1.5 flex items-center justify-between text-xs text-slate-400">
+      <span><kbd class="px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 font-mono">Ctrl</kbd> + <kbd class="px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 font-mono">Enter</kbd> to send</span>
+      <span id="char-count">0</span>
+    </div>
+  </form>
+</div>
+
+
+<!-- =========================================================
+     SCRIPTS
+     ========================================================= -->
+<script>
+(function () {
+  "use strict";
+
+  // ---- Auto-scroll to the latest message on load ----
+  const scrollEl = document.getElementById("messages-scroll");
+  if (scrollEl) {
+    scrollEl.scrollTop = scrollEl.scrollHeight;
+  }
+
+  // ---- Character counter + live feedback ----
+  const body = document.getElementById("reply-body");
+  const counter = document.getElementById("char-count");
+  const form = document.getElementById("reply-form");
+
+  if (body && counter) {
+    body.addEventListener("input", () => {
+      counter.textContent = body.value.length;
+    });
+  }
+
+  // ---- Auto-grow the textarea ----
+  if (body) {
+    const maxHeight = 180; // px
+    const autoGrow = () => {
+      body.style.height = "auto";
+      body.style.height = Math.min(body.scrollHeight, maxHeight) + "px";
+    };
+    body.addEventListener("input", autoGrow);
+    autoGrow();
+  }
+
+  // ---- Focus the textarea on load (after auto-scroll) ----
+  if (body) {
+    setTimeout(() => body.focus({ preventScroll: true }), 50);
+  }
+
+  // ---- Warn on unsaved changes ----
+  let dirty = false;
+  if (form) {
+    form.addEventListener("input", () => { dirty = true; });
+    form.addEventListener("submit", () => { dirty = false; });
+    window.addEventListener("beforeunload", (e) => {
+      if (dirty && body && body.value.trim() !== "") {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    });
+  }
+})();
+</script>
+
+{% endblock %}

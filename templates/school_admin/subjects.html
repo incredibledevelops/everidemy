@@ -1,0 +1,129 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Subjects{% endblock %}
+{% block breadcrumb %}Subjects{% endblock %}
+
+{% block topbar_action %}
+  <a href="{{ url_for('school_admin.subject_new') }}"
+     class="hidden sm:inline-flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700
+            text-white text-sm font-semibold px-3.5 py-2 rounded-lg transition shadow-sm">
+    + New subject
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Total</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ stats.total }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Active</p>
+    <p class="mt-2 text-3xl font-extrabold text-green-600">{{ stats.active }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Core</p>
+    <p class="mt-2 text-3xl font-extrabold text-brand-600">{{ stats.core }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Elective</p>
+    <p class="mt-2 text-3xl font-extrabold text-amber-600">{{ stats.elective }}</p>
+  </div>
+</div>
+
+<div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+  <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+    <h2 class="font-bold">All subjects <span class="text-slate-400 font-normal">({{ subjects|length }})</span></h2>
+    <form method="GET" class="flex flex-col sm:flex-row gap-2">
+      <input type="text" name="q" value="{{ search }}" placeholder="Search name or code…"
+             class="px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-brand-500 outline-none">
+      <select name="status" class="px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-brand-500 outline-none bg-white">
+        <option value="active"   {{ 'selected' if status == 'active' }}>Active</option>
+        <option value="archived" {{ 'selected' if status == 'archived' }}>Archived</option>
+        <option value=""         {{ 'selected' if status == '' }}>All</option>
+      </select>
+      <button class="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-900 text-white">Filter</button>
+      {% if search or status != 'active' %}
+        <a href="{{ url_for('school_admin.subjects_list') }}"
+           class="px-4 py-2 text-sm font-semibold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50">
+          Reset
+        </a>
+      {% endif %}
+    </form>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm min-w-[800px]">
+      <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
+        <tr>
+          <th class="text-left px-5 py-3 font-semibold">Subject</th>
+          <th class="text-left px-5 py-3 font-semibold">Code</th>
+          <th class="text-left px-5 py-3 font-semibold">Type</th>
+          <th class="text-left px-5 py-3 font-semibold">Classes</th>
+          <th class="text-left px-5 py-3 font-semibold">Status</th>
+          <th class="text-right px-5 py-3 font-semibold">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for s in subjects %}
+          <tr class="hover:bg-slate-50">
+            <td class="px-5 py-4 font-semibold">{{ s.name }}</td>
+            <td class="px-5 py-4">
+              {% if s.code %}<code class="text-xs bg-slate-100 px-2 py-0.5 rounded">{{ s.code }}</code>{% else %}—{% endif %}
+            </td>
+            <td class="px-5 py-4">
+              {% if s.is_core %}
+                <span class="text-xs font-semibold px-2 py-1 rounded bg-brand-50 text-brand-700">Core</span>
+              {% else %}
+                <span class="text-xs font-semibold px-2 py-1 rounded bg-amber-50 text-amber-700">Elective</span>
+              {% endif %}
+            </td>
+            <td class="px-5 py-4 text-slate-600">
+              {% if s._classes %}
+                {{ s._classes | map(attribute='name') | join(', ') }}
+              {% else %}
+                <span class="text-xs text-slate-400 italic">Not assigned</span>
+              {% endif %}
+            </td>
+            <td class="px-5 py-4">
+              {% if s.status == 'active' %}
+                <span class="text-xs font-semibold px-2 py-1 rounded bg-green-50 text-green-700">● Active</span>
+              {% else %}
+                <span class="text-xs font-semibold px-2 py-1 rounded bg-slate-100 text-slate-600">{{ s.status|capitalize }}</span>
+              {% endif %}
+            </td>
+            <td class="px-5 py-4 text-right whitespace-nowrap">
+              <a href="{{ url_for('school_admin.subject_edit', subject_id=s._id) }}"
+                 class="text-brand-600 text-xs font-semibold hover:underline">Edit</a>
+              <form method="POST" action="{{ url_for('school_admin.subject_delete', subject_id=s._id) }}"
+                    onsubmit="return confirm('Archive “{{ s.name|e }}”?');" class="inline ml-3">
+                <button class="text-red-600 text-xs font-semibold hover:underline">Archive</button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="6" class="px-5 py-16 text-center">
+              <div class="max-w-sm mx-auto">
+                <div class="w-16 h-16 mx-auto rounded-2xl bg-brand-50 grid place-items-center text-brand-600 text-2xl">📚</div>
+                <p class="mt-4 font-semibold text-slate-700">
+                  {% if search or status != 'active' %}No subjects match your filters{% else %}No subjects yet{% endif %}
+                </p>
+                <p class="mt-1 text-sm text-slate-500">
+                  {% if search or status != 'active' %}Try a different search or reset.{% else %}Add the subjects taught at your school.{% endif %}
+                </p>
+                <div class="mt-4">
+                  <a href="{{ url_for('school_admin.subject_new') }}"
+                     class="px-4 py-2 text-sm font-semibold rounded-lg bg-brand-600 hover:bg-brand-700 text-white">
+                    + New subject
+                  </a>
+                </div>
+              </div>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

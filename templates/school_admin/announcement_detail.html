@@ -1,0 +1,122 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}{{ announcement.title }}{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.announcements_page') }}" class="hover:text-brand-600">Announcements</a>
+  / View
+{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('school_admin.announcements_page') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to announcements
+</a>
+
+<div class="grid lg:grid-cols-3 gap-6">
+
+  <!-- Main content -->
+  <div class="lg:col-span-2 space-y-6">
+
+    <div class="bg-white rounded-2xl border border-slate-100 p-6">
+      <div class="flex items-start gap-4">
+        <div class="w-12 h-12 rounded-xl grid place-items-center text-lg shrink-0
+                    {{ 'bg-purple-50 text-purple-600' if is_platform else 'bg-brand-50 text-brand-600' }}">
+          {% if is_platform %}✨{% else %}📢{% endif %}
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            {% set priority_style = {
+              'urgent': 'bg-red-50 text-red-700 border-red-200',
+              'high':   'bg-amber-50 text-amber-700 border-amber-200',
+              'normal': 'bg-slate-100 text-slate-600 border-slate-200',
+            }.get(announcement.priority, 'bg-slate-100 text-slate-600 border-slate-200') %}
+            <span class="text-xs font-semibold px-2 py-0.5 rounded border {{ priority_style }}">
+              {{ announcement.priority|capitalize }}
+            </span>
+            {% if is_platform %}
+              <span class="text-xs font-semibold px-2 py-0.5 rounded bg-purple-50 text-purple-700">
+                From Everidemy
+              </span>
+            {% endif %}
+            <span class="text-xs text-slate-500">
+              to {{ announcement.audience|replace('_',' ')|title }}
+            </span>
+          </div>
+          <h1 class="mt-2 text-2xl font-extrabold">{{ announcement.title }}</h1>
+          <p class="mt-1 text-xs text-slate-500">
+            {% if author %}By {{ author.name }} · {% endif %}
+            {{ announcement.published_at.strftime('%b %d, %Y · %H:%M') if announcement.published_at }}
+          </p>
+        </div>
+      </div>
+
+      <div class="mt-6 pt-6 border-t border-slate-100 whitespace-pre-wrap text-slate-700 leading-relaxed">
+        {{ announcement.body }}
+      </div>
+
+      {% if announcement.expires_at %}
+        <div class="mt-6 pt-6 border-t border-slate-100 text-sm text-slate-500">
+          ⏰ Expires on {{ announcement.expires_at.strftime('%B %d, %Y') }}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="space-y-6">
+
+    {% if not is_platform %}
+      <div class="bg-white rounded-2xl border border-slate-100 p-6">
+        <h3 class="font-bold">Actions</h3>
+        <a href="{{ url_for('school_admin.announcement_edit', announcement_id=announcement._id) }}"
+           class="mt-4 block w-full text-center py-2.5 rounded-lg bg-brand-50 hover:bg-brand-100 text-brand-700 font-semibold text-sm">
+          ✏️ Edit announcement
+        </a>
+        <form method="POST"
+              action="{{ url_for('school_admin.announcement_delete', announcement_id=announcement._id) }}"
+              onsubmit="return confirm('Delete this announcement?');"
+              class="mt-2">
+          <button class="w-full py-2.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 font-semibold text-sm">
+            Delete
+          </button>
+        </form>
+      </div>
+    {% endif %}
+
+    <div class="bg-white rounded-2xl border border-slate-100 p-6">
+      <h3 class="font-bold">Reach</h3>
+      <ul class="mt-4 space-y-2 text-sm">
+        <li class="flex items-center justify-between">
+          <span class="text-slate-500">Audience</span>
+          <span class="font-semibold">{{ audience_count }}</span>
+        </li>
+        <li class="flex items-center justify-between">
+          <span class="text-slate-500">Read</span>
+          <span class="font-semibold">{{ read_count }}</span>
+        </li>
+        {% if audience_count %}
+          <li class="pt-2">
+            <div class="h-2 rounded-full bg-slate-100 overflow-hidden">
+              <div class="h-full rounded-full bg-brand-500 transition-all"
+                   style="width: {{ (read_count / audience_count * 100)|round|int }}%"></div>
+            </div>
+            <p class="mt-1 text-xs text-slate-500 text-center">
+              {{ (read_count / audience_count * 100)|round|int }}% read
+            </p>
+          </li>
+        {% endif %}
+      </ul>
+    </div>
+
+    {% if is_platform %}
+      <div class="bg-purple-50 border border-purple-200 rounded-2xl p-6">
+        <p class="text-xs font-semibold text-purple-700 uppercase tracking-wider">Platform notice</p>
+        <p class="mt-2 text-sm text-purple-800">
+          This announcement comes from the Everidemy team and appears for every school on the platform.
+        </p>
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

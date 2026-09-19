@@ -1,0 +1,117 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Enrollment report{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.reports_page') }}" class="hover:text-brand-600">Reports</a>
+  / Enrollment
+{% endblock %}
+
+{% block topbar_action %}
+  <a href="{{ url_for('school_admin.report_enrollment_csv') }}"
+     class="hidden sm:inline-flex items-center gap-1.5 bg-white border border-slate-200
+            hover:border-slate-300 text-slate-700 text-sm font-semibold px-3.5 py-2 rounded-lg">
+    ⬇️ Download CSV
+  </a>
+{% endblock %}
+
+{% block content %}
+
+<a href="{{ url_for('school_admin.reports_page') }}"
+   class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+  ← Back to reports
+</a>
+
+<!-- Summary cards -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Total</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ data.total }}</p>
+    <p class="mt-1 text-xs text-slate-500">All time</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Active</p>
+    <p class="mt-2 text-3xl font-extrabold text-green-600">{{ data.active }}</p>
+    <p class="mt-1 text-xs text-slate-500">{{ data.archived }} archived</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Male</p>
+    <p class="mt-2 text-3xl font-extrabold text-blue-600">{{ data.male }}</p>
+    <p class="mt-1 text-xs text-slate-500">
+      {{ ((data.male / data.active) * 100)|round|int if data.active else 0 }}%
+    </p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Female</p>
+    <p class="mt-2 text-3xl font-extrabold text-pink-600">{{ data.female }}</p>
+    <p class="mt-1 text-xs text-slate-500">
+      {{ ((data.female / data.active) * 100)|round|int if data.active else 0 }}%
+    </p>
+  </div>
+</div>
+
+<!-- Trend chart -->
+<div class="bg-white rounded-2xl border border-slate-100 p-6">
+  <h2 class="font-bold">New admissions — last 12 months</h2>
+  <p class="text-xs text-slate-500 mt-0.5">
+    Total new students admitted each month
+  </p>
+
+  {% if trend %}
+    {% set max_count = trend | map(attribute='count') | max %}
+    {% set max_count = max_count if max_count > 0 else 1 %}
+
+    <div class="mt-6 flex items-end gap-1.5 h-56">
+      {% for t in trend %}
+        <div class="flex-1 flex flex-col items-center gap-2 group">
+          <div class="relative w-full flex items-end justify-center" style="height: 100%;">
+            <div class="w-full rounded-t transition-all
+                        {{ 'bg-brand-500' if t.count > 0 else 'bg-slate-100' }}"
+                 style="height: {{ (t.count / max_count * 100) if t.count else 3 }}%">
+            </div>
+            <span class="absolute -top-6 text-xs font-semibold text-slate-700 opacity-0 group-hover:opacity-100 transition">
+              {{ t.count }}
+            </span>
+          </div>
+          <span class="text-[10px] text-slate-500 whitespace-nowrap">
+            {{ t.label.split(' ')[0] }}
+          </span>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="mt-6 text-sm text-slate-500 italic">No data available.</p>
+  {% endif %}
+</div>
+
+<!-- By class -->
+<div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+  <div class="p-5 border-b border-slate-100">
+    <h2 class="font-bold">Students by class</h2>
+  </div>
+
+  {% if data.by_class %}
+    <div class="divide-y divide-slate-100">
+      {% set total_active = data.active if data.active else 1 %}
+      {% for c in data.by_class %}
+        <div class="p-4 flex items-center gap-4">
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold truncate">{{ c.class_name }}</p>
+            <div class="mt-1.5 h-2 rounded-full bg-slate-100 overflow-hidden">
+              <div class="h-full rounded-full bg-brand-500 transition-all"
+                   style="width: {{ (c.count / total_active * 100)|round|int }}%"></div>
+            </div>
+          </div>
+          <div class="text-right shrink-0">
+            <p class="font-bold text-lg">{{ c.count }}</p>
+            <p class="text-xs text-slate-500">
+              {{ (c.count / total_active * 100)|round|int }}%
+            </p>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="p-8 text-center text-sm text-slate-500 italic">No classes yet.</p>
+  {% endif %}
+</div>
+
+{% endblock %}

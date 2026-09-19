@@ -1,0 +1,50 @@
+{% extends "student/base.html" %}
+{% block page_title %}My Attendance{% endblock %}
+{% block breadcrumb %}Attendance{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-green-700">Present</p>
+    <p class="mt-2 text-3xl font-extrabold text-green-600">{{ counts.present }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-red-700">Absent</p>
+    <p class="mt-2 text-3xl font-extrabold text-red-600">{{ counts.absent }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-amber-700">Late</p>
+    <p class="mt-2 text-3xl font-extrabold text-amber-600">{{ counts.late }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Overall</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ pct }}%</p>
+  </div>
+</div>
+
+<div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+  <div class="p-5 border-b border-slate-100">
+    <h2 class="font-bold">Last 60 sessions</h2>
+  </div>
+  {% if recent %}
+    <ul class="divide-y divide-slate-100 text-sm">
+      {% for r in recent %}
+        {% set cls = {
+          'present': 'bg-green-100 text-green-700',
+          'absent':  'bg-red-100 text-red-700',
+          'late':    'bg-amber-100 text-amber-700',
+          'excused': 'bg-blue-100 text-blue-700',
+        }.get(r.status, 'bg-slate-100 text-slate-700') %}
+        <li class="px-5 py-3 flex items-center justify-between">
+          <span>{{ r.date.strftime('%a, %b %d, %Y') }}</span>
+          <span class="text-xs font-semibold px-2 py-1 rounded {{ cls }}">{{ r.status|capitalize }}</span>
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="p-10 text-center text-sm text-slate-500">No attendance yet.</p>
+  {% endif %}
+</div>
+
+{% endblock %}
