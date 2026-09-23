@@ -6,6 +6,9 @@ Accessible to school admins only. Handles:
 - POST /school-admin/billing/checkout   → start Paystack subscription
 - GET  /school-admin/billing/callback   → verify payment + activate
 - POST /school-admin/billing/cancel     → cancel subscription
+
+The webhook (routes/webhooks.py) is the authoritative source of truth;
+this blueprint exists so the admin gets immediate feedback after checkout.
 """
 from datetime import datetime, timedelta
 import uuid
@@ -19,13 +22,10 @@ from bson import ObjectId
 from config import Config
 from extensions import schools, invoices
 from models import School, format_money
-from utils.auth import role_required
+from utils.auth import current_user, current_school
 from utils import paystack
 from utils import subscription as sub_utils
-from utils.mailer import (
-    send_billing_confirmed_email,
-    send_billing_failed_email,
-)
+from utils.mailer import send_billing_confirmed_email
 
 
 billing_bp = Blueprint(
@@ -49,11 +49,49 @@ def _billing_url():
 
 
 # =========================================================
-# GATE — school_admin only
+# GATE — school_admin only, but /callback is exempt
 # =========================================================
 @billing_bp.before_request
-@role_required("school_admin")
 def _gate():
+    """
+    Every route in this blueprint requires a logged-in school_admin,
+    EXCEPT /callback (Paystack redirect) and /webhook-adjacent paths.
+
+    We do the check manually instead of stacking @role_required so we
+    can bypass the guard cleanly for the callback endpoint.
+    """
+    # The callback must work even if the school state changed mid-flow
+    if request.endpoint == "billing.callback":
+        user = current_user()
+        if not user:
+            # Defensive: if the session was lost, we still can't activate
+            # because we don't know which school to activate.
+            flash("Please log in to complete your payment.", "warning")
+            return redirect(url_for("auth.login"))
+        g.user = user
+        g.school = current_school()
+        return None
+
+    user = current_user()
+    if not user:
+        flash("Please log in to continue.", "warning")
+        return redirect(url_for("auth.login"))
+
+    if user.get("role") != "school_admin":
+        from flask import abort
+        abort(403)
+
+    school = current_school()
+    if not school:
+        flash("No school is linked to your account.", "error")
+        return redirect(url_for("auth.logout"))
+
+    if school.get("suspended"):
+        flash("Your school account is suspended. Please contact support.", "error")
+        return redirect(url_for("auth.logout"))
+
+    g.user = user
+    g.school = school
     return None
 
 
@@ -66,9 +104,11 @@ def dashboard():
     school = g.school
     subscription = sub_utils.get_subscription(school["_id"])
 
-    # Platform billing invoices for this school
     platform_invoices = list(
-        invoices.find({"school_id": school["_id"], "kind": "platform"})
+        invoices.find({
+            "school_id": school["_id"],
+            "kind": "platform",
+        })
         .sort("created_at", -1)
         .limit(24)
     )
@@ -108,6 +148,7 @@ def checkout():
     school = g.school
     user = g.user
 
+    # ---- 0. Config guard ----
     if not Config.PAYSTACK_SECRET_KEY or not Config.PAYSTACK_PLAN_CODE:
         flash(
             "Online billing isn't configured. Please contact Everidemy support.",
@@ -115,7 +156,7 @@ def checkout():
         )
         return redirect(_billing_url())
 
-    # ---- 1. Ensure customer exists ----
+    # ---- 1. Ensure Paystack customer exists ----
     customer_code = school.get("paystack_customer_code")
     if not customer_code:
         parts = (user.get("name") or "").strip().split(" ", 1)
@@ -147,7 +188,7 @@ def checkout():
 
     # ---- 2. Initialize transaction ----
     reference = f"EVD-SUB-{school['_id']}-{uuid.uuid4().hex[:12]}"
-    amount_kobo = Config.PAYSTACK_PLATFORM_AMOUNT * 100
+    amount_kobo = int(Config.PAYSTACK_PLATFORM_AMOUNT) * 100
 
     init = paystack.initialize_transaction(
         email=user["email"],
@@ -198,7 +239,11 @@ def callback():
         return redirect(_billing_url())
 
     school = g.school
+    if not school:
+        flash("Session expired. Please log in and try again.", "error")
+        return redirect(url_for("auth.login"))
 
+    # ---- Verify with Paystack ----
     tx = paystack.verify_transaction(reference)
     if not tx or tx.get("status") != "success":
         flash(
@@ -208,15 +253,36 @@ def callback():
         )
         return redirect(_billing_url())
 
-    # ---- Verify the amount matches what we expect ----
+    # ---- Verify the reference belongs to THIS school ----
+    meta = tx.get("metadata") or {}
+    meta_school_id = str(meta.get("school_id") or "")
+    if meta_school_id and meta_school_id != str(school["_id"]):
+        current_app.logger.warning(
+            f"[billing.callback] School mismatch — "
+            f"reference={reference} meta_school={meta_school_id} "
+            f"current_school={school['_id']}"
+        )
+        flash(
+            "This payment reference belongs to a different school. "
+            "Please contact support.",
+            "error",
+        )
+        return redirect(_billing_url())
+
+    # ---- Verify amount matches plan ----
     amount_paid = (tx.get("amount", 0) / 100.0)
     expected = float(Config.PAYSTACK_PLATFORM_AMOUNT)
 
     if amount_paid < expected:
         current_app.logger.warning(
-            f"[billing.callback] Underpayment detected — "
-            f"reference={reference} paid={amount_paid} expected={expected}"
+            f"[billing.callback] Underpayment — reference={reference} "
+            f"paid={amount_paid} expected={expected}"
         )
+        School.log(school["_id"], g.user["_id"], "billing.underpayment", {
+            "reference": reference,
+            "paid": amount_paid,
+            "expected": expected,
+        })
         flash(
             "We received a payment, but the amount doesn't match the plan price. "
             "Please contact support if you believe this is an error.",
@@ -224,17 +290,37 @@ def callback():
         )
         return redirect(_billing_url())
 
-    # Extract subscription info
+    # ---- Extract subscription info ----
     plan_obj = tx.get("plan") or {}
     sub_code = plan_obj.get("subscription_code")
     email_token = plan_obj.get("email_token")
-    next_billing = datetime.utcnow() + timedelta(days=30)
 
-    # Idempotency — only insert once
-    if not invoices.find_one({
+    # Prefer Paystack's next_payment_date if present; else 30 days
+    next_billing = None
+    nxt = plan_obj.get("next_payment_date") or tx.get("next_payment_date")
+    if nxt:
+        try:
+            next_billing = datetime.fromisoformat(
+                nxt.replace("Z", "+00:00")
+            ).replace(tzinfo=None)
+        except Exception:
+            next_billing = None
+    if not next_billing:
+        next_billing = datetime.utcnow() + timedelta(days=30)
+
+    if not sub_code:
+        current_app.logger.warning(
+            f"[billing.callback] Paystack returned no subscription_code "
+            f"for reference={reference}"
+        )
+
+    # ---- Idempotency + activation ----
+    existing = invoices.find_one({
         "school_id": school["_id"],
         "paystack_reference": reference,
-    }):
+    })
+
+    if not existing:
         invoices.insert_one({
             "school_id": school["_id"],
             "kind": "platform",
@@ -259,6 +345,7 @@ def callback():
             "reference": reference,
             "amount": amount_paid,
             "subscription_code": sub_code,
+            "source": "callback",
         })
 
         # Confirmation email (best-effort)
@@ -305,6 +392,11 @@ def cancel():
                 "error",
             )
             return redirect(_billing_url())
+    else:
+        current_app.logger.warning(
+            f"[billing.cancel] Missing sub_code or email_token for "
+            f"school={school['_id']}"
+        )
 
     sub_utils.mark_canceled(school["_id"], subscription_code=sub_code)
 

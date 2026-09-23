@@ -1,0 +1,136 @@
+{% extends "school_admin/base.html" %}
+{% block page_title %}Portal Access{% endblock %}
+{% block breadcrumb %}
+  <a href="{{ url_for('school_admin.students_list') }}" class="hover:text-brand-600">Students</a>
+  / Portal Access
+{% endblock %}
+
+{% block topbar_action %}
+  <form method="POST" action="{{ url_for('school_admin.portal_access_bulk') }}"
+        onsubmit="return confirm('Create portal accounts for every active student and guardian who doesn\'t have one yet? Credentials will be emailed.');">
+    <button class="hidden sm:inline-flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700
+                   text-white text-sm font-semibold px-3.5 py-2 rounded-lg transition shadow-sm">
+      ⚡ Enable for all
+    </button>
+  </form>
+{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Active students</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ total }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">With portal</p>
+    <p class="mt-2 text-3xl font-extrabold text-green-600">{{ with_student_user }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-slate-500">Missing portal</p>
+    <p class="mt-2 text-3xl font-extrabold text-red-600">{{ total - with_student_user }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100 flex items-center">
+    <form method="POST" action="{{ url_for('school_admin.portal_access_bulk') }}"
+          onsubmit="return confirm('Create portal accounts for every active student and guardian who doesn\'t have one yet?');"
+          class="w-full">
+      <button class="w-full py-2.5 rounded-lg bg-brand-600 hover:bg-brand-700
+                     text-white font-semibold text-sm">
+        ⚡ Enable for all
+      </button>
+    </form>
+  </div>
+</div>
+
+<div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+  <div class="p-5 border-b border-slate-100">
+    <form method="GET" class="flex gap-2">
+      <input type="text" name="q" value="{{ search }}" placeholder="Search students…"
+             class="px-3 py-2 text-sm rounded-lg border border-slate-200
+                    focus:border-brand-500 outline-none flex-1">
+      <button class="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-900 text-white">
+        Search
+      </button>
+    </form>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm min-w-[900px]">
+      <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
+        <tr>
+          <th class="text-left px-5 py-3 font-semibold">Student</th>
+          <th class="text-left px-5 py-3 font-semibold">Student account</th>
+          <th class="text-left px-5 py-3 font-semibold">Guardian account</th>
+          <th class="text-right px-5 py-3 font-semibold">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for s in rows %}
+          <tr class="hover:bg-slate-50">
+            <td class="px-5 py-4">
+              <p class="font-semibold">{{ s.last_name }} {{ s.first_name }}</p>
+              <p class="text-xs text-slate-500">{{ s.admission_no }}</p>
+            </td>
+
+            <td class="px-5 py-4">
+              {% if s._student_user %}
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-semibold px-2 py-1 rounded bg-green-50 text-green-700">✓ Active</span>
+                  <span class="text-xs text-slate-500">{{ s._student_user.email }}</span>
+                </div>
+              {% else %}
+                <span class="text-xs font-semibold px-2 py-1 rounded bg-red-50 text-red-700">No access</span>
+              {% endif %}
+            </td>
+
+            <td class="px-5 py-4">
+              {% if s._guardian_users %}
+                <div class="space-y-1">
+                  {% for g_user in s._guardian_users %}
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-semibold px-2 py-1 rounded bg-green-50 text-green-700">✓</span>
+                      <span class="text-xs text-slate-600">{{ g_user.name }} · {{ g_user.email }}</span>
+                    </div>
+                  {% endfor %}
+                </div>
+              {% elif s.guardian_email %}
+                <span class="text-xs font-semibold px-2 py-1 rounded bg-red-50 text-red-700">No access</span>
+              {% else %}
+                <span class="text-xs text-slate-400">No guardian email</span>
+              {% endif %}
+            </td>
+
+            <td class="px-5 py-4 text-right whitespace-nowrap">
+              {% if not s._student_user %}
+                <form method="POST"
+                      action="{{ url_for('school_admin.portal_access_for_student', student_id=s._id) }}"
+                      class="inline">
+                  <button class="text-brand-600 text-xs font-semibold hover:underline">
+                    Enable access
+                  </button>
+                </form>
+              {% else %}
+                <form method="POST"
+                      action="{{ url_for('school_admin.portal_access_resend', student_id=s._id) }}"
+                      onsubmit="return confirm('Generate new passwords and re-send credentials?');"
+                      class="inline">
+                  <button class="text-brand-600 text-xs font-semibold hover:underline">
+                    Reset & re-send
+                  </button>
+                </form>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr>
+            <td colspan="4" class="px-5 py-16 text-center text-sm text-slate-500">
+              No students found.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}

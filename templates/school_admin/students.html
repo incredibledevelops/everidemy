@@ -1,8 +1,14 @@
 {% extends "school_admin/base.html" %}
+
 {% block page_title %}Students{% endblock %}
 {% block breadcrumb %}Students{% endblock %}
 
 {% block topbar_action %}
+  <a href="{{ url_for('school_admin.portal_access_list') }}"
+     class="hidden md:inline-flex items-center gap-1.5 bg-white border border-slate-200
+            hover:border-slate-300 text-slate-700 text-sm font-semibold px-3.5 py-2 rounded-lg transition">
+    🔑 Portal Access
+  </a>
   <a href="{{ url_for('school_admin.student_new') }}"
      class="hidden sm:inline-flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700
             text-white text-sm font-semibold px-3.5 py-2 rounded-lg transition shadow-sm">

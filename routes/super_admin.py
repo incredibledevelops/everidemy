@@ -17,13 +17,17 @@ from flask import (
     Blueprint, render_template, request, redirect,
     url_for, flash, g, current_app,
 )
-from bson import ObjectId
 
 from config import Config
-from extensions import schools as schools_col, announcements, audit_logs, tickets as tickets_col
+from extensions import (
+    schools as schools_col,
+    announcements,
+    audit_logs,
+    tickets as tickets_col,
+)
 from models import (
     School, Analytics, Subscription, User,
-    to_object_id, format_money,
+    format_money,
 )
 from utils.auth import role_required
 from utils.mailer import (
@@ -32,6 +36,7 @@ from utils.mailer import (
     send_school_reactivated_email,
     send_custom_email,
 )
+
 
 super_admin_bp = Blueprint("super_admin", __name__, url_prefix="/super-admin")
 
@@ -93,7 +98,6 @@ def schools_list():
         limit=per_page, skip=(page - 1) * per_page,
     )
 
-    # Attach student count for each row
     for s in schools:
         s["_student_count"] = School.student_count(s["_id"])
 
@@ -155,9 +159,13 @@ def school_new():
             flash(f"School “{name}” created successfully.", "success")
             return redirect(url_for("super_admin.school_detail", school_id=school["_id"]))
 
-        except Exception as e:
+        except Exception:
             current_app.logger.exception("Failed to create school")
-            flash(f"Could not create school: {e}", "error")
+            flash(
+                "Could not create the school. Please try again, "
+                "or contact engineering if the issue persists.",
+                "error",
+            )
             return render_template(
                 "super_admin/school_form.html",
                 form=request.form, mode="create", plans=Config.PLANS,
@@ -377,29 +385,39 @@ def tickets_page():
 def broadcast():
     if request.method == "POST":
         message    = (request.form.get("message") or "").strip()
-        audience   = request.form.get("audience", "all")
+        # `audience` here means which schools get the email.
+        # It is NOT the announcement audience — every portal should see it.
+        target     = request.form.get("audience", "all")
         also_email = request.form.get("also_email") == "on"
 
         if not message:
             flash("Message cannot be empty.", "error")
             return redirect(url_for("super_admin.broadcast"))
 
-        # 1. Save the announcement
+        now = datetime.utcnow()
+
+        # 1. Save the announcement (audience="all" so every portal sees it)
         announcements.insert_one({
             "school_id": None,
             "title": "Platform broadcast",
             "body": message,
-            "audience": audience,
-            "created_at": datetime.utcnow(),
+            "audience": "all",              # <-- FIXED
+            "priority": "normal",           # <-- FIXED: needed by other views
+            "attachments": [],
+            "published_at": now,            # <-- FIXED: needed by sort + read_by
+            "created_at": now,
             "created_by": g.user["_id"],
+            "read_by": [],
+            "target_status": target,        # informational — which schools got emailed
         })
 
-        # 2. Determine target schools
+        # 2. Determine target schools for the email send
         q = {}
-        if audience == "active":
+        if target == "active":
             q["subscription_status"] = "active"
-        elif audience == "trialing":
+        elif target == "trialing":
             q["subscription_status"] = "trialing"
+        # "all" → every school (including suspended)
 
         target_schools = list(schools_col.find(q)) if q else School.all(limit=1000)
 
@@ -442,21 +460,27 @@ def broadcast():
 # =========================================================
 @super_admin_bp.route("/audit-logs")
 def audit_logs_page():
-    page = max(1, int(request.args.get("page", 1)))
+    page     = max(1, int(request.args.get("page", 1)))
     per_page = 50
+    action   = request.args.get("action", "").strip()
+
+    q = {}
+    if action:
+        q["action"] = {"$regex": action, "$options": "i"}
 
     logs = list(
         audit_logs
-        .find()
+        .find(q)
         .sort("timestamp", -1)
         .skip((page - 1) * per_page)
         .limit(per_page)
     )
-    total = audit_logs.count_documents({})
+    total = audit_logs.count_documents(q)
 
     return render_template(
         "super_admin/audit_logs.html",
         logs=logs, page=page, per_page=per_page, total=total,
+        action=action,
     )
 
 

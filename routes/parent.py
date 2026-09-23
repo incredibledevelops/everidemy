@@ -21,6 +21,7 @@ from extensions import (
 from models import School, format_money
 from utils.auth import role_required
 from utils import paystack
+from utils.announcements import visible_for, unread_count, mark_all_read
 
 
 parent_bp = Blueprint(
@@ -63,7 +64,6 @@ def _my_children():
     """Return student docs linked to this parent user."""
     child_ids = g.user.get("linked_children") or []
     if not child_ids:
-        # Fallback: match by guardian_email
         return list(students.find(_tenant({
             "guardian_email": g.user.get("email", ""),
             "status": "active",
@@ -114,19 +114,28 @@ def _message_recipients():
 def inject_parent_context():
     """
     Values available in every parent-portal template.
-    Also computes `children` and `unread_messages` so the sidebar
-    and the notification bell work without each route passing them.
+    Computes `children`, `unread_messages`, and `unread_announcements`
+    so the sidebar and notification bell work everywhere.
     """
     unread = 0
+    unread_ann = 0
     children = []
+
     try:
         unread = messages.count_documents({
             "school_id": g.school["_id"],
             "recipient_ids": g.user["_id"],
             "read_at": None,
         })
+    except Exception:
+        pass
 
-        # Enrich each child with class + balance for the sidebar
+    try:
+        unread_ann = unread_count(g.user, g.school["_id"], announcements)
+    except Exception:
+        pass
+
+    try:
         for c in _my_children():
             if c.get("class_id"):
                 c["_class"] = classes.find_one(_tenant({"_id": c["class_id"]}))
@@ -148,6 +157,7 @@ def inject_parent_context():
         "currency_code": Config.CURRENCY,
         "children": children,
         "unread_messages": unread,
+        "unread_announcements": unread_ann,
     }
 
 
@@ -204,21 +214,24 @@ def dashboard():
         g_res = list(grades.aggregate(g_pipeline))
         c["_avg_grade"] = round(g_res[0]["avg"]) if g_res and g_res[0].get("avg") else 0
 
-    # Recent notices
-    recent_notices = list(
-        announcements.find({
-            "$or": [
-                {"school_id": g.school["_id"]},
-                {"school_id": None},
-            ],
-        }).sort("created_at", -1).limit(4)
-    )
+    # Recent notices — use the visibility helper so audience is respected
+    recent_notices = visible_for(g.user, g.school["_id"], announcements, limit=4)
 
     return render_template(
         "parent/dashboard.html",
         children=children,
         recent_notices=recent_notices,
     )
+
+
+# =========================================================
+# ANNOUNCEMENTS
+# =========================================================
+@parent_bp.route("/announcements")
+def announcements_page():
+    rows = visible_for(g.user, g.school["_id"], announcements)
+    mark_all_read(g.user, g.school["_id"], announcements, [a["_id"] for a in rows])
+    return render_template("parent/announcements.html", announcements=rows)
 
 
 # =========================================================
@@ -327,8 +340,16 @@ def pay_fee(student_id, invoice_id):
         flash("Invoice not found.", "error")
         return redirect(url_for("parent.child_detail", student_id=student_id, tab="fees"))
 
-    if inv["status"] == "paid":
+    if inv.get("status") == "paid":
         flash("This invoice is already fully paid.", "info")
+        return redirect(url_for("parent.child_detail", student_id=student_id, tab="fees"))
+
+    if inv.get("status") == "waived":
+        flash("This invoice has been waived. No payment is needed.", "info")
+        return redirect(url_for("parent.child_detail", student_id=student_id, tab="fees"))
+
+    if inv.get("balance", 0) <= 0:
+        flash("This invoice has no outstanding balance.", "info")
         return redirect(url_for("parent.child_detail", student_id=student_id, tab="fees"))
 
     return render_template(
@@ -372,6 +393,17 @@ def pay_fee_callback(student_id, invoice_id):
         )
         return redirect(url_for("parent.child_detail", student_id=student_id, tab="fees"))
 
+    # Cross-check that the charge is for THIS invoice
+    meta = tx.get("metadata") or {}
+    if meta.get("invoice_id") and str(meta["invoice_id"]) != str(inv["_id"]):
+        current_app.logger.warning(
+            f"[pay_fee_callback] invoice_id mismatch — "
+            f"reference={reference} meta={meta.get('invoice_id')} "
+            f"expected={inv['_id']}"
+        )
+        flash("Payment reference does not match this invoice.", "error")
+        return redirect(url_for("parent.child_detail", student_id=student_id, tab="fees"))
+
     amount = (tx.get("amount", 0) / 100.0)
     channel = tx.get("channel", "paystack")
 
@@ -393,8 +425,17 @@ def pay_fee_callback(student_id, invoice_id):
             "created_at":         datetime.utcnow(),
         })
 
-        from routes.school_admin import _recompute_invoice
-        _recompute_invoice(inv["_id"], school_id=g.school["_id"])
+        # Recompute using the school-scoped helper so it works outside
+        # a request-context (in case we ever call it from a job too).
+        try:
+            from routes.school_admin import _recompute_invoice
+            try:
+                _recompute_invoice(inv["_id"], school_id=g.school["_id"])
+            except TypeError:
+                # Older signature — fall back to the one-arg version
+                _recompute_invoice(inv["_id"])
+        except Exception:
+            current_app.logger.exception("Failed to recompute invoice")
 
         School.log(g.school["_id"], g.user["_id"], "payment.recorded", {
             "invoice_id": str(inv["_id"]),

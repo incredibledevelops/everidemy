@@ -8,13 +8,15 @@ Every route in this blueprint:
 
 This is the multi-tenant isolation layer.
 """
+import re
 from datetime import datetime, timedelta
 
 from flask import (
     Blueprint, render_template, request, redirect,
-    url_for, flash, g, abort, make_response,
+    url_for, flash, g, abort, make_response, current_app,
 )
 from bson import ObjectId
+from werkzeug.security import generate_password_hash
 
 from config import Config
 from extensions import (
@@ -25,7 +27,11 @@ from extensions import (
 )
 from models import School, Subscription, User, format_money
 from utils.auth import school_required
-from utils.mailer import send_school_invite_email
+from utils.mailer import (
+    send_school_invite_email,
+    send_portal_credentials_email,
+)
+from utils.passwords import generate_password
 from utils.reports import (
     enrollment_summary, enrollment_trend,
     attendance_summary, attendance_by_class, attendance_trend,
@@ -261,10 +267,11 @@ def dashboard():
         students.find(tenant_filter({"status": "active"}))
         .sort("created_at", -1).limit(5)
     )
-    recent_notices = list(
-        announcements.find({"school_id": {"$in": [sid, None]}})
-        .sort("created_at", -1).limit(4)
-    )
+
+    # Filter notices by audience + expiry so admins only see
+    # what's actually visible to their own role
+    from utils.announcements import visible_for as _visible
+    recent_notices = _visible(g.user, sid, announcements, limit=4)
 
     subscription = Subscription.find_for_school(sid)
     trial_days_left = None
@@ -295,6 +302,36 @@ def dashboard():
         "read_at": None,
     })
 
+    # ── Enrollment trend for the dashboard chart ──
+    try:
+        trend_data = enrollment_trend(sid, students, months=6)
+    except Exception:
+        current_app.logger.exception("Enrollment trend failed")
+        trend_data = []
+
+    # ── 5 most recent payments for the dashboard table ──
+    recent_payments = list(
+        payments.find(tenant_filter({})).sort("paid_at", -1).limit(5)
+    )
+    p_student_ids = {p["student_id"] for p in recent_payments if p.get("student_id")}
+    if p_student_ids:
+        s_map = {
+            s["_id"]: s
+            for s in students.find(tenant_filter({"_id": {"$in": list(p_student_ids)}}))
+        }
+        p_class_ids = {
+            s["class_id"] for s in s_map.values() if s.get("class_id")
+        }
+        c_map = {
+            c["_id"]: c
+            for c in classes.find(tenant_filter({"_id": {"$in": list(p_class_ids)}}))
+        } if p_class_ids else {}
+        for p in recent_payments:
+            s = s_map.get(p.get("student_id"))
+            if s:
+                s["_class"] = c_map.get(s.get("class_id"))
+            p["_student"] = s
+
     return render_template(
         "school_admin/dashboard.html",
         total_students=total_students,
@@ -312,6 +349,8 @@ def dashboard():
         weekly_attendance=weekly,
         unread_messages=unread_messages,
         plans=Config.PLANS,
+        enrollment_trend=trend_data,
+        recent_payments=recent_payments,
     )
 
 
@@ -395,12 +434,28 @@ def student_new():
         }
         result = students.insert_one(doc)
         student_id = result.inserted_id
+
+        # Auto-provision student + guardian portal accounts
+        try:
+            _provision_portals_for_student(
+                {**doc, "_id": student_id},
+                g.school,
+                g.user["_id"],
+                send_emails=True,
+            )
+        except Exception:
+            current_app.logger.exception("Auto portal provisioning failed")
+
         School.log(g.school["_id"], g.user["_id"], "student.created", {
             "student_id": str(student_id),
             "name": f"{data['first_name']} {data['last_name']}",
             "admission_no": data["admission_no"],
         })
-        flash(f"{data['first_name']} {data['last_name']} admitted successfully.", "success")
+        flash(
+            f"{data['first_name']} {data['last_name']} admitted successfully. "
+            f"Login details have been emailed.",
+            "success",
+        )
         if request.form.get("save_and_new"):
             return redirect(url_for("school_admin.student_new"))
         return redirect(url_for("school_admin.student_detail", student_id=str(student_id)))
@@ -463,6 +518,32 @@ def student_edit(student_id):
 
         data["updated_at"] = datetime.utcnow()
         students.update_one(tenant_filter({"_id": student["_id"]}), {"$set": data})
+
+        # Re-link guardian portal account if the guardian email changed
+        old_guardian_email = (student.get("guardian_email") or "").strip().lower()
+        new_guardian_email = (data.get("guardian_email") or "").strip().lower()
+
+        if old_guardian_email != new_guardian_email:
+            try:
+                if old_guardian_email:
+                    old_user = users.find_one({"email": old_guardian_email})
+                    if old_user:
+                        users.update_one(
+                            {"_id": old_user["_id"]},
+                            {"$pull": {"linked_children": student["_id"]}},
+                        )
+
+                if new_guardian_email:
+                    updated_student = students.find_one(
+                        tenant_filter({"_id": student["_id"]})
+                    )
+                    if updated_student:
+                        _create_guardian_portal_account(
+                            updated_student, g.school, g.user["_id"]
+                        )
+            except Exception:
+                current_app.logger.exception("Guardian re-link on edit failed")
+
         School.log(g.school["_id"], g.user["_id"], "student.updated", {
             "student_id": str(student["_id"]),
             "name": f"{data['first_name']} {data['last_name']}",
@@ -709,6 +790,340 @@ def _student_grades_detail(student_id, term=None, academic_year=None) -> dict:
         "term": term,
         "academic_year": ay,
     }
+
+
+# =========================================================
+# PORTAL ACCESS
+# =========================================================
+def _create_student_portal_account(student_doc, school, actor_id=None):
+    """
+    Create a `users` doc for a student.
+    Returns (user_doc, password_or_None).
+    """
+    if student_doc.get("user_id"):
+        existing = users.find_one({"_id": student_doc["user_id"]})
+        if existing:
+            return existing, None
+
+    # Students may not have their own email — synthesize one from the school name
+    email = (student_doc.get("student_email") or "").strip().lower()
+    if not email:
+        slug = re.sub(r"[^a-z0-9]+", "", (school.get("name") or "school").lower())[:12]
+        email = f"{student_doc['admission_no'].lower()}@{slug}.everidemy.app"
+
+    user = users.find_one({"email": email})
+    if user:
+        students.update_one(
+            {"_id": student_doc["_id"]},
+            {"$set": {"user_id": user["_id"]}},
+        )
+        return user, None
+
+    password = generate_password(10)
+    now = datetime.utcnow()
+    user_doc = {
+        "school_id": school["_id"],
+        "name": f"{student_doc.get('first_name','')} {student_doc.get('last_name','')}".strip(),
+        "email": email,
+        "password_hash": generate_password_hash(password),
+        "role": "student",
+        "phone": None,
+        "email_verified": False,
+        "linked_children": [],
+        "must_reset_password": True,
+        "created_at": now,
+        "last_login": None,
+    }
+    uid = users.insert_one(user_doc).inserted_id
+
+    students.update_one(
+        {"_id": student_doc["_id"]},
+        {"$set": {
+            "user_id": uid,
+            "student_email": email,
+            "updated_at": now,
+        }},
+    )
+
+    School.log(school["_id"], actor_id, "student.portal_created", {
+        "student_id": str(student_doc["_id"]),
+        "user_id": str(uid),
+        "email": email,
+    })
+
+    return {**user_doc, "_id": uid}, password
+
+
+def _create_guardian_portal_account(student_doc, school, actor_id=None):
+    """
+    Create (or link) a `parent` user for the student's guardian.
+    Returns (user_doc, password_or_None).
+    """
+    email = (student_doc.get("guardian_email") or "").strip().lower()
+    if not email:
+        return None, None
+
+    existing = users.find_one({"email": email})
+    if existing:
+        # Link this student to the parent's linked_children
+        users.update_one(
+            {"_id": existing["_id"]},
+            {"$addToSet": {"linked_children": student_doc["_id"]}},
+        )
+        students.update_one(
+            {"_id": student_doc["_id"]},
+            {"$addToSet": {"guardian_ids": existing["_id"]}},
+        )
+        return existing, None
+
+    password = generate_password(10)
+    now = datetime.utcnow()
+    user_doc = {
+        "school_id": school["_id"],
+        "name": student_doc.get("guardian_name") or "Parent/Guardian",
+        "email": email,
+        "password_hash": generate_password_hash(password),
+        "role": "parent",
+        "phone": student_doc.get("guardian_phone") or None,
+        "email_verified": False,
+        "linked_children": [student_doc["_id"]],
+        "must_reset_password": True,
+        "created_at": now,
+        "last_login": None,
+    }
+    uid = users.insert_one(user_doc).inserted_id
+
+    students.update_one(
+        {"_id": student_doc["_id"]},
+        {"$addToSet": {"guardian_ids": uid}},
+    )
+
+    School.log(school["_id"], actor_id, "parent.portal_created", {
+        "student_id": str(student_doc["_id"]),
+        "user_id": str(uid),
+        "email": email,
+    })
+
+    return {**user_doc, "_id": uid}, password
+
+
+def _send_portal_emails(student_doc, school,
+                        student_user, student_pwd,
+                        guardian_user, guardian_pwd,
+                        actor_id=None):
+    """
+    Send portal credentials.
+
+    The guardian receives ONE email containing:
+      - Their own parent login (real email + temp password)
+      - Their ward's student login (synthetic email + temp password)
+
+    If there's no guardian email on file, we send only to the student's
+    synthetic address (fallback) — otherwise nobody gets notified.
+    """
+    from utils.mailer import send_ward_portal_credentials_email
+
+    login_url    = url_for("auth.login", _external=True)
+    student_name = (
+        f"{student_doc.get('first_name','')} "
+        f"{student_doc.get('last_name','')}"
+    ).strip()
+    school_name  = school["name"]
+
+    # ── Preferred path: send everything to the guardian ──
+    guardian_email = (student_doc.get("guardian_email") or "").strip().lower()
+    if guardian_email:
+        try:
+            send_ward_portal_credentials_email(
+                guardian_name     = (student_doc.get("guardian_name")
+                                     or guardian_user.get("name") if guardian_user
+                                     else "Parent/Guardian"),
+                guardian_email    = guardian_email,
+                guardian_password = guardian_pwd,
+                student_name      = student_name,
+                student_email     = (student_user or {}).get("email"),
+                student_password  = student_pwd,
+                school_name       = school_name,
+                login_url         = login_url,
+            )
+            return
+        except Exception:
+            current_app.logger.exception("Guardian credentials email failed")
+
+    # ── Fallback: no guardian email on file → email student address ──
+    # (In practice this address is synthetic and won't be read. But at
+    # least an admin can see the send attempt in logs to diagnose.)
+    if student_user and student_pwd and student_user.get("email"):
+        try:
+            send_portal_credentials_email(
+                recipient_name = student_name,
+                email          = student_user["email"],
+                password       = student_pwd,
+                role_label     = "Student",
+                school_name    = school_name,
+                login_url      = login_url,
+                student_names  = student_name,
+            )
+        except Exception:
+            current_app.logger.exception("Student credentials email failed")
+
+
+def _provision_portals_for_student(student_doc, school, actor_id=None, send_emails=True):
+    """Create student + guardian portal accounts, optionally email credentials."""
+    s_user, s_pwd = _create_student_portal_account(student_doc, school, actor_id)
+    g_user, g_pwd = _create_guardian_portal_account(student_doc, school, actor_id)
+
+    if send_emails and (s_pwd or g_pwd):
+        _send_portal_emails(student_doc, school, s_user, s_pwd, g_user, g_pwd, actor_id)
+
+    return s_user, s_pwd, g_user, g_pwd
+
+
+@school_admin_bp.route("/students/portal-access", methods=["GET"])
+@school_required
+def portal_access_list():
+    """Overview of which students/guardians have portal accounts."""
+    search = request.args.get("q", "").strip()
+
+    q = {"status": "active"}
+    if search:
+        q["$or"] = [
+            {"first_name":   {"$regex": search, "$options": "i"}},
+            {"last_name":    {"$regex": search, "$options": "i"}},
+            {"admission_no": {"$regex": search, "$options": "i"}},
+        ]
+
+    rows = list(students.find(tenant_filter(q)).sort([("last_name", 1), ("first_name", 1)]))
+
+    user_ids = {r["user_id"] for r in rows if r.get("user_id")}
+    guardian_ids = set()
+    for r in rows:
+        guardian_ids.update(r.get("guardian_ids") or [])
+
+    all_user_ids = list(user_ids | guardian_ids)
+    umap = {}
+    if all_user_ids:
+        for u in users.find({"_id": {"$in": all_user_ids}}):
+            umap[u["_id"]] = u
+
+    for r in rows:
+        r["_student_user"] = umap.get(r.get("user_id"))
+        r["_guardian_users"] = [umap[g] for g in (r.get("guardian_ids") or []) if g in umap]
+
+    total = students.count_documents(tenant_filter({"status": "active"}))
+    with_student_user = students.count_documents(tenant_filter({
+        "status": "active", "user_id": {"$ne": None},
+    }))
+
+    return render_template(
+        "school_admin/portal_access.html",
+        rows=rows,
+        total=total,
+        with_student_user=with_student_user,
+        search=search,
+    )
+
+
+@school_admin_bp.route("/students/portal-access/bulk", methods=["POST"])
+@school_required
+def portal_access_bulk():
+    """Enable portal access for every active student who doesn't have it yet."""
+    rows = list(students.find(tenant_filter({
+        "status": "active",
+        "$or": [{"user_id": None}, {"user_id": {"$exists": False}}],
+    })))
+
+    created_students = 0
+    created_guardians = 0
+    skipped = 0
+
+    for s in rows:
+        try:
+            s_user, s_pwd = _create_student_portal_account(s, g.school, g.user["_id"])
+            if s_pwd:
+                created_students += 1
+
+            g_user, g_pwd = _create_guardian_portal_account(s, g.school, g.user["_id"])
+            if g_pwd:
+                created_guardians += 1
+
+            if s_pwd or g_pwd:
+                _send_portal_emails(s, g.school, s_user, s_pwd, g_user, g_pwd, g.user["_id"])
+            else:
+                skipped += 1
+        except Exception:
+            current_app.logger.exception(f"Portal bulk creation failed for {s['_id']}")
+            skipped += 1
+
+    School.log(g.school["_id"], g.user["_id"], "portal.bulk_enabled", {
+        "students_created": created_students,
+        "guardians_created": created_guardians,
+        "skipped": skipped,
+    })
+
+    flash(
+        f"Portal access enabled for {created_students} student(s) "
+        f"and {created_guardians} guardian(s). "
+        f"{skipped} already had accounts.",
+        "success",
+    )
+    return redirect(url_for("school_admin.portal_access_list"))
+
+
+@school_admin_bp.route("/students/<student_id>/portal-access", methods=["POST"])
+@school_required
+def portal_access_for_student(student_id):
+    """Enable (or resend) portal access for a single student + guardian."""
+    student = _load_student_or_404(student_id)
+    s_user, s_pwd, g_user, g_pwd = _provision_portals_for_student(
+        student, g.school, g.user["_id"], send_emails=True,
+    )
+    if s_pwd or g_pwd:
+        flash("Portal access enabled. Login details sent by email.", "success")
+    else:
+        flash("Portal accounts already exist. Credentials were not re-sent.", "info")
+    return redirect(url_for("school_admin.student_detail", student_id=student_id, tab="guardians"))
+
+
+@school_admin_bp.route("/students/<student_id>/portal-access/resend", methods=["POST"])
+@school_required
+def portal_access_resend(student_id):
+    """Reset the student + guardian passwords to new ones and re-send."""
+    student = _load_student_or_404(student_id)
+
+    new_s_pwd = None
+    new_g_pwd = None
+
+    if student.get("user_id"):
+        new_s_pwd = generate_password(10)
+        users.update_one(
+            {"_id": student["user_id"]},
+            {"$set": {
+                "password_hash": generate_password_hash(new_s_pwd),
+                "must_reset_password": True,
+            }},
+        )
+
+    if student.get("guardian_ids"):
+        new_g_pwd = generate_password(10)
+        users.update_many(
+            {"_id": {"$in": student["guardian_ids"]}},
+            {"$set": {
+                "password_hash": generate_password_hash(new_g_pwd),
+                "must_reset_password": True,
+            }},
+        )
+
+    s_user = users.find_one({"_id": student["user_id"]}) if student.get("user_id") else None
+    g_user = users.find_one({"_id": student["guardian_ids"][0]}) if student.get("guardian_ids") else None
+
+    _send_portal_emails(student, g.school, s_user, new_s_pwd, g_user, new_g_pwd, g.user["_id"])
+
+    School.log(g.school["_id"], g.user["_id"], "portal.credentials_resent", {
+        "student_id": str(student["_id"]),
+    })
+    flash("New credentials have been emailed.", "success")
+    return redirect(url_for("school_admin.student_detail", student_id=student_id, tab="guardians"))
 
 
 # =========================================================
@@ -1140,6 +1555,7 @@ def staff_new():
             "password_hash": data["password_hash"],
             "role": data["role"], "phone": data.get("phone"),
             "email_verified": False, "linked_children": [],
+            "must_reset_password": True,
             "created_at": now, "last_login": None,
         }
         user_id = users.insert_one(user_doc).inserted_id
@@ -1171,6 +1587,13 @@ def staff_new():
                 pass
 
         flash(f"{data['name']} added to staff.", "success")
+        if data.get("generated_password"):
+            flash(
+                f"Temporary password for {data['name']}: "
+                f"{data['generated_password']} — share this securely; "
+                f"they'll be asked to change it on first login.",
+                "info",
+            )
         return redirect(url_for("school_admin.staff_detail", staff_id=str(staff_id)))
 
     return render_template(
@@ -1328,8 +1751,6 @@ def _generate_staff_no() -> str:
 
 
 def _validate_staff_form(form, mode="create", member=None, user=None):
-    from werkzeug.security import generate_password_hash
-
     def get(k): return (form.get(k) or "").strip()
     name        = get("name")
     email       = get("email").lower()
@@ -1358,7 +1779,11 @@ def _validate_staff_form(form, mode="create", member=None, user=None):
             errors.append(f"An account with email {email} already exists.")
 
     pwd_hash = None
+    generated_password = None
     if mode == "create":
+        if not password:
+            generated_password = generate_password(10)
+            password = generated_password
         if len(password) < 8:
             errors.append("Password must be at least 8 characters.")
         else:
@@ -1392,6 +1817,7 @@ def _validate_staff_form(form, mode="create", member=None, user=None):
         "name":  name, "email": email,
         "phone": phone or None, "role": role,
         "password_hash": pwd_hash,
+        "generated_password": generated_password,
         "staff_no":    staff_no,
         "designation": designation or None,
         "department":  department or None,
@@ -2154,7 +2580,6 @@ def _recompute_invoice(invoice_id, school_id=None) -> dict:
         try:
             school_id = g.school["_id"]
         except Exception:
-            # No request context — caller must pass school_id.
             return {}
 
     oid = _to_oid(invoice_id)
@@ -2198,6 +2623,7 @@ def _recompute_invoice(invoice_id, school_id=None) -> dict:
     inv["balance"]     = balance
     inv["status"]      = status
     return inv
+
 
 def _student_fees_detail(student_id) -> dict:
     invs = list(

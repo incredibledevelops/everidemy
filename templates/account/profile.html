@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}My profile{% endblock %}
+{% block meta_description %}Update your Everidemy profile details.{% endblock %}
+
+{% block body %}
+<div class="min-h-screen bg-slate-50 py-10 px-4">
+  <div class="max-w-xl mx-auto space-y-6">
+
+    <a href="javascript:history.back()"
+       class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
+      ← Back
+    </a>
+
+    <div class="bg-white rounded-2xl border border-slate-100 p-6 sm:p-8">
+      <h1 class="text-2xl font-extrabold">My profile</h1>
+      <p class="text-sm text-slate-500 mt-1">
+        Update your personal details.
+      </p>
+
+      <form method="POST" class="mt-6 space-y-4">
+        {# ── Full name ─────────────────────────────────────── #}
+        <div>
+          <label for="profile-name"
+                 class="text-sm font-semibold text-slate-700">
+            Full name
+          </label>
+          <input type="text"
+                 id="profile-name"
+                 name="name"
+                 value="{{ user.name or '' }}"
+                 required
+                 maxlength="120"
+                 autocomplete="name"
+                 class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                        focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10
+                        outline-none transition">
+        </div>
+
+        {# ── Email (read-only) ─────────────────────────────── #}
+        <div>
+          <label for="profile-email"
+                 class="text-sm font-semibold text-slate-700">
+            Email
+          </label>
+          <input type="email"
+                 id="profile-email"
+                 value="{{ user.email }}"
+                 disabled
+                 autocomplete="email"
+                 class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                        bg-slate-50 text-slate-500 cursor-not-allowed">
+          <p class="mt-1 text-xs text-slate-500">
+            Contact your school admin to change your email.
+          </p>
+        </div>
+
+        {# ── Phone ─────────────────────────────────────────── #}
+        <div>
+          <label for="profile-phone"
+                 class="text-sm font-semibold text-slate-700">
+            Phone
+          </label>
+          <input type="tel"
+                 id="profile-phone"
+                 name="phone"
+                 value="{{ user.phone or '' }}"
+                 maxlength="30"
+                 autocomplete="tel"
+                 class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
+                        focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10
+                        outline-none transition">
+        </div>
+
+        {# ── Actions ───────────────────────────────────────── #}
+        <div class="pt-4 flex flex-col sm:flex-row gap-3 border-t border-slate-100">
+          <button type="submit"
+                  class="px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700
+                         text-white font-semibold transition">
+            Save changes
+          </button>
+          <a href="{{ url_for('account.change_password') }}"
+             class="px-5 py-3 rounded-xl border border-slate-200 font-semibold
+                    text-slate-700 hover:bg-slate-50 text-center transition">
+            Change password
+          </a>
+        </div>
+      </form>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

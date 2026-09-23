@@ -1,9 +1,10 @@
 {% extends "school_admin/base.html" %}
+
 {% block page_title %}Welcome back, {{ g.user.name.split(' ')[0] if g.user else '' }} 👋{% endblock %}
 {% block breadcrumb %}Overview{% endblock %}
 
 {% block topbar_action %}
-  <a href="#"
+  <a href="{{ url_for('school_admin.student_new') }}"
      class="hidden sm:inline-flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700
             text-white text-sm font-semibold px-3.5 py-2 rounded-lg transition shadow-sm">
     + Admit student
@@ -13,50 +14,48 @@
 
 {% block content %}
 
-<!-- =========================================================
-     SUBSCRIPTION BANNER (only when trialing)
-     ========================================================= -->
+{# ── Subscription banner (only when trialing and close to expiry) ── #}
 {% if trial_days_left is not none and trial_days_left <= 5 %}
-<div class="rounded-2xl bg-gradient-to-r from-amber-50 to-amber-100 border border-amber-200 p-4
-            flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-  <div class="flex items-start gap-3">
-    <div class="w-10 h-10 rounded-xl bg-amber-200 grid place-items-center text-amber-800 shrink-0">
-      ⏳
+  <div class="rounded-2xl bg-gradient-to-r from-amber-50 to-amber-100
+              border border-amber-200 p-4
+              flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+    <div class="flex items-start gap-3">
+      <div class="w-10 h-10 rounded-xl bg-amber-200 grid place-items-center
+                  text-amber-800 shrink-0" aria-hidden="true">⏳</div>
+      <div>
+        <p class="font-bold text-amber-900">
+          Your free trial ends in {{ trial_days_left }} day{{ 's' if trial_days_left != 1 }}
+        </p>
+        <p class="text-sm text-amber-800 mt-0.5">
+          Subscribe now to keep using Everidemy without interruption.
+        </p>
+      </div>
     </div>
-    <div>
-      <p class="font-bold text-amber-900">
-        Your free trial ends in {{ trial_days_left }} day{{ 's' if trial_days_left != 1 }}
-      </p>
-      <p class="text-sm text-amber-800 mt-0.5">
-        Subscribe now to keep using Everidemy without interruption.
-      </p>
-    </div>
+    <a href="{{ url_for('billing.dashboard') }}"
+       class="inline-flex justify-center items-center px-4 py-2 rounded-lg
+              bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold shrink-0">
+      Subscribe — {{ format_money(plans.monthly.price) }}/mo
+    </a>
   </div>
-  <a href="{{ url_for('school_admin.billing_page') }}"
-     class="inline-flex justify-center items-center px-4 py-2 rounded-lg
-            bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold shrink-0">
-    Subscribe — {{ format_money(plans.monthly.price) }}/mo
-  </a>
-</div>
 {% endif %}
 
 
-<!-- =========================================================
-     KPI CARDS
-     ========================================================= -->
+{# ── KPI cards ── #}
 <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <div class="flex items-center justify-between">
-      <p class="text-xs uppercase font-semibold text-slate-500">Total Students</p>
-      <div class="w-9 h-9 rounded-lg bg-brand-50 grid place-items-center text-brand-600">👨‍🎓</div>
+      <p class="text-xs uppercase font-semibold text-slate-500">Total students</p>
+      <div class="w-9 h-9 rounded-lg bg-brand-50 grid place-items-center
+                  text-brand-600" aria-hidden="true">👨‍🎓</div>
     </div>
     <p class="mt-2 text-3xl font-extrabold">{{ total_students }}</p>
     <p class="mt-1 text-xs text-slate-500">
       {% if total_students %}
         Active enrollments
       {% else %}
-        <a href="#" class="text-brand-600 font-semibold">Admit the first one →</a>
+        <a href="{{ url_for('school_admin.student_new') }}"
+           class="text-brand-600 font-semibold">Admit the first one →</a>
       {% endif %}
     </p>
   </div>
@@ -64,25 +63,32 @@
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <div class="flex items-center justify-between">
       <p class="text-xs uppercase font-semibold text-slate-500">Staff</p>
-      <div class="w-9 h-9 rounded-lg bg-amber-50 grid place-items-center text-amber-600">👩‍🏫</div>
+      <div class="w-9 h-9 rounded-lg bg-amber-50 grid place-items-center
+                  text-amber-600" aria-hidden="true">👩‍🏫</div>
     </div>
     <p class="mt-2 text-3xl font-extrabold">{{ total_staff }}</p>
     <p class="mt-1 text-xs text-slate-500">
-      {% if total_staff %}Active staff{% else %}No staff added yet{% endif %}
+      {% if total_staff %}
+        Active staff
+      {% else %}
+        <a href="{{ url_for('school_admin.staff_new') }}"
+           class="text-brand-600 font-semibold">Add staff →</a>
+      {% endif %}
     </p>
   </div>
 
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <div class="flex items-center justify-between">
       <p class="text-xs uppercase font-semibold text-slate-500">Attendance today</p>
-      <div class="w-9 h-9 rounded-lg bg-purple-50 grid place-items-center text-purple-600">📋</div>
+      <div class="w-9 h-9 rounded-lg bg-purple-50 grid place-items-center
+                  text-purple-600" aria-hidden="true">📋</div>
     </div>
     <p class="mt-2 text-3xl font-extrabold">
       {% if attendance_marked %}{{ attendance_pct }}%{% else %}—{% endif %}
     </p>
     <p class="mt-1 text-xs text-slate-500">
       {% if attendance_marked %}
-        {{ attendance_pct }}% present today
+        {{ attendance_pct }}% present
       {% else %}
         <a href="{{ url_for('school_admin.attendance_page') }}"
            class="text-brand-600 font-semibold">Mark now →</a>
@@ -93,7 +99,8 @@
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <div class="flex items-center justify-between">
       <p class="text-xs uppercase font-semibold text-slate-500">Fees collected</p>
-      <div class="w-9 h-9 rounded-lg bg-emerald-50 grid place-items-center text-emerald-600">💳</div>
+      <div class="w-9 h-9 rounded-lg bg-emerald-50 grid place-items-center
+                  text-emerald-600" aria-hidden="true">💳</div>
     </div>
     <p class="mt-2 text-3xl font-extrabold">
       {% if fees_expected %}{{ fees_pct }}%{% else %}—{% endif %}
@@ -110,16 +117,15 @@
 </div>
 
 
-<!-- =========================================================
-     QUICK ACTIONS
-     ========================================================= -->
+{# ── Quick actions ── #}
 <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
-  <a href="#"
-     class="bg-white rounded-xl p-4 border border-slate-100 hover:border-brand-500
-            hover:shadow transition flex items-center gap-3 group">
-    <div class="w-10 h-10 rounded-lg bg-brand-50 grid place-items-center text-brand-600 group-hover:scale-110 transition">
-      👨‍🎓
-    </div>
+  <a href="{{ url_for('school_admin.student_new') }}"
+     class="bg-white rounded-xl p-4 border border-slate-100
+            hover:border-brand-500 hover:shadow transition
+            flex items-center gap-3 group">
+    <div class="w-10 h-10 rounded-lg bg-brand-50 grid place-items-center
+                text-brand-600 group-hover:scale-110 transition"
+         aria-hidden="true">👨‍🎓</div>
     <div class="min-w-0">
       <p class="font-semibold text-sm">Admit student</p>
       <p class="text-xs text-slate-500">Add new</p>
@@ -127,11 +133,12 @@
   </a>
 
   <a href="{{ url_for('school_admin.attendance_page') }}"
-     class="bg-white rounded-xl p-4 border border-slate-100 hover:border-brand-500
-            hover:shadow transition flex items-center gap-3 group">
-    <div class="w-10 h-10 rounded-lg bg-amber-50 grid place-items-center text-amber-600 group-hover:scale-110 transition">
-      📋
-    </div>
+     class="bg-white rounded-xl p-4 border border-slate-100
+            hover:border-brand-500 hover:shadow transition
+            flex items-center gap-3 group">
+    <div class="w-10 h-10 rounded-lg bg-amber-50 grid place-items-center
+                text-amber-600 group-hover:scale-110 transition"
+         aria-hidden="true">📋</div>
     <div class="min-w-0">
       <p class="font-semibold text-sm">Take attendance</p>
       <p class="text-xs text-slate-500">Today</p>
@@ -139,11 +146,12 @@
   </a>
 
   <a href="{{ url_for('school_admin.fees_page') }}"
-     class="bg-white rounded-xl p-4 border border-slate-100 hover:border-brand-500
-            hover:shadow transition flex items-center gap-3 group">
-    <div class="w-10 h-10 rounded-lg bg-emerald-50 grid place-items-center text-emerald-600 group-hover:scale-110 transition">
-      💳
-    </div>
+     class="bg-white rounded-xl p-4 border border-slate-100
+            hover:border-brand-500 hover:shadow transition
+            flex items-center gap-3 group">
+    <div class="w-10 h-10 rounded-lg bg-emerald-50 grid place-items-center
+                text-emerald-600 group-hover:scale-110 transition"
+         aria-hidden="true">💳</div>
     <div class="min-w-0">
       <p class="font-semibold text-sm">Generate invoice</p>
       <p class="text-xs text-slate-500">This term</p>
@@ -151,11 +159,12 @@
   </a>
 
   <a href="{{ url_for('school_admin.announcements_page') }}"
-     class="bg-white rounded-xl p-4 border border-slate-100 hover:border-brand-500
-            hover:shadow transition flex items-center gap-3 group">
-    <div class="w-10 h-10 rounded-lg bg-purple-50 grid place-items-center text-purple-600 group-hover:scale-110 transition">
-      📢
-    </div>
+     class="bg-white rounded-xl p-4 border border-slate-100
+            hover:border-brand-500 hover:shadow transition
+            flex items-center gap-3 group">
+    <div class="w-10 h-10 rounded-lg bg-purple-50 grid place-items-center
+                text-purple-600 group-hover:scale-110 transition"
+         aria-hidden="true">📢</div>
     <div class="min-w-0">
       <p class="font-semibold text-sm">Post notice</p>
       <p class="text-xs text-slate-500">To all</p>
@@ -164,49 +173,122 @@
 </div>
 
 
-<!-- =========================================================
-     CHART + NOTICES
-     ========================================================= -->
+{# ── Enrollment trend + recent notices ── #}
 <div class="grid lg:grid-cols-3 gap-6">
 
-  <!-- Enrollment chart -->
+  {# ── Enrollment trend ── #}
   <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-100">
     <div class="flex items-center justify-between">
       <div>
         <h2 class="font-bold">Enrollment trend</h2>
-        <p class="text-xs text-slate-500 mt-0.5">Number of active students over time</p>
+        <p class="text-xs text-slate-500 mt-0.5">
+          Number of active students over time
+        </p>
       </div>
-      <select class="text-sm border border-slate-200 rounded-lg px-2 py-1 bg-white">
-        <option>Last 6 months</option>
-        <option>This term</option>
-      </select>
+      <span class="text-xs text-slate-400">Last 6 months</span>
     </div>
 
-    <svg viewBox="0 0 600 200" class="mt-6 w-full h-56" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="grad-school" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stop-color="#3454f5" stop-opacity="0.35"/>
-          <stop offset="100%" stop-color="#3454f5" stop-opacity="0"/>
-        </linearGradient>
-      </defs>
-      <g stroke="#eef1f7" stroke-width="1">
-        <line x1="0" y1="50"  x2="600" y2="50"/>
-        <line x1="0" y1="100" x2="600" y2="100"/>
-        <line x1="0" y1="150" x2="600" y2="150"/>
-      </g>
-      <path d="M0,160 C80,150 120,140 200,120 C280,100 320,110 400,80 C480,55 540,45 600,30 L600,200 L0,200 Z"
-            fill="url(#grad-school)"/>
-      <path d="M0,160 C80,150 120,140 200,120 C280,100 320,110 400,80 C480,55 540,45 600,30"
-            fill="none" stroke="#3454f5" stroke-width="3"/>
-    </svg>
+    {# Use the chart only when there are at least 2 months of data
+       AND at least one non-zero month. Otherwise show a helpful
+       "not enough data" card instead of a nearly-flat line. #}
+    {% set has_data = false %}
+    {% if enrollment_trend and enrollment_trend | length > 1 %}
+      {% set ns = namespace(any_nonzero=false) %}
+      {% for item in enrollment_trend %}
+        {% if item.count and item.count > 0 %}
+          {% set ns.any_nonzero = true %}
+        {% endif %}
+      {% endfor %}
+      {% set has_data = ns.any_nonzero and (enrollment_trend | length) >= 2 %}
+    {% endif %}
 
-    <div class="flex justify-between text-xs text-slate-500 mt-3">
-      <span>Sep</span><span>Oct</span><span>Nov</span>
-      <span>Dec</span><span>Jan</span><span>Feb</span>
-    </div>
+    {% if has_data %}
+      {% set values = enrollment_trend | map(attribute='count') | list %}
+      {% set labels = enrollment_trend | map(attribute='label') | list %}
+      {% set max_val = values | max %}
+      {% set max_val = max_val if max_val > 0 else 1 %}
+      {% set n_points = values | length %}
+      {% set step_x = 600 / (n_points - 1) if n_points > 1 else 600 %}
+
+      {# Y scale: use 0..max_val but give a bit of headroom.
+         Map count=0 → y=200 (baseline); count=max_val → y=30 (near top). #}
+      {% set y_top = 30 %}
+      {% set y_base = 200 %}
+      {% set y_span = y_base - y_top %}
+
+      <svg viewBox="0 0 600 220" class="mt-6 w-full h-56"
+           preserveAspectRatio="none" role="img"
+           aria-label="Enrollment trend chart">
+        <defs>
+          <linearGradient id="grad-school" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%"   stop-color="#3454f5" stop-opacity="0.35"/>
+            <stop offset="100%" stop-color="#3454f5" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+
+        {# Horizontal grid lines #}
+        <g stroke="#eef1f7" stroke-width="1">
+          <line x1="0" y1="{{ y_top }}"  x2="600" y2="{{ y_top }}"/>
+          <line x1="0" y1="{{ y_top + y_span / 3 }}" x2="600" y2="{{ y_top + y_span / 3 }}"/>
+          <line x1="0" y1="{{ y_top + 2 * y_span / 3 }}" x2="600" y2="{{ y_top + 2 * y_span / 3 }}"/>
+          <line x1="0" y1="{{ y_base }}" x2="600" y2="{{ y_base }}"/>
+        </g>
+
+        {# Fill area #}
+        <path d="
+          M0,{{ y_base }}
+          {%- for v in values %}
+            L{{ loop.index0 * step_x }},{{ y_base - (v / max_val * y_span) }}
+          {%- endfor %}
+          L600,{{ y_base }} Z"
+              fill="url(#grad-school)"/>
+
+        {# Line #}
+        <polyline points="
+          {%- for v in values -%}
+            {{ loop.index0 * step_x }},{{ y_base - (v / max_val * y_span) }}
+            {%- if not loop.last %} {% endif -%}
+          {%- endfor -%}"
+              fill="none" stroke="#3454f5" stroke-width="3"
+              stroke-linecap="round" stroke-linejoin="round"/>
+
+        {# Dots #}
+        {% for v in values %}
+          {% if v > 0 %}
+            <circle cx="{{ loop.index0 * step_x }}"
+                    cy="{{ y_base - (v / max_val * y_span) }}"
+                    r="4" fill="#3454f5" stroke="white" stroke-width="2"/>
+          {% endif %}
+        {% endfor %}
+      </svg>
+
+      <div class="flex justify-between text-xs text-slate-500 mt-3">
+        {% for label in labels %}
+          <span>{{ label.split(' ')[0] }}</span>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="py-12 text-center">
+        <div class="w-12 h-12 mx-auto rounded-xl bg-brand-50
+                    grid place-items-center text-brand-600 text-xl"
+             aria-hidden="true">📈</div>
+        <p class="mt-3 text-sm font-semibold text-slate-700">
+          Not enough history yet
+        </p>
+        <p class="mt-1 text-xs text-slate-500 max-w-xs mx-auto">
+          Enrollment trends appear here once you have a few months of
+          admissions. Admit students to see the chart fill in.
+        </p>
+        <a href="{{ url_for('school_admin.student_new') }}"
+           class="mt-4 inline-block px-4 py-2 rounded-lg
+                  bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold">
+          + Admit student
+        </a>
+      </div>
+    {% endif %}
   </div>
 
-  <!-- Recent notices -->
+  {# ── Recent notices ── #}
   <div class="bg-white rounded-2xl p-6 border border-slate-100">
     <div class="flex items-center justify-between">
       <h2 class="font-bold">Recent notices</h2>
@@ -215,25 +297,36 @@
     </div>
 
     {% if recent_notices %}
+      {% set audience_labels = {
+        'all':           'Everyone',
+        'students':      'Students',
+        'parents':       'Parents',
+        'staff':         'Staff',
+        'school_admins': 'Admins',
+      } %}
       <ul class="mt-4 space-y-4 text-sm">
         {% for n in recent_notices %}
           <li class="border-l-2 border-brand-500 pl-3">
             <p class="font-semibold truncate">{{ n.title }}</p>
             <p class="text-xs text-slate-500 mt-0.5">
-              {{ n.created_at.strftime('%b %d · %H:%M') if n.created_at else '' }}
-              {% if n.audience %} · {{ n.audience|capitalize }}{% endif %}
+              {% set ts = n.published_at or n.created_at %}
+              {{ ts.strftime('%b %d · %H:%M') if ts else '' }}
+              {% if n.audience %}
+                · {{ audience_labels.get(n.audience, n.audience|capitalize) }}
+              {% endif %}
             </p>
           </li>
         {% endfor %}
       </ul>
     {% else %}
       <div class="mt-6 text-center">
-        <div class="w-12 h-12 mx-auto rounded-xl bg-slate-100 grid place-items-center text-slate-400 text-xl">
-          📢
-        </div>
+        <div class="w-12 h-12 mx-auto rounded-xl bg-slate-100
+                    grid place-items-center text-slate-400 text-xl"
+             aria-hidden="true">📢</div>
         <p class="mt-3 text-sm text-slate-500">No notices yet</p>
         <a href="{{ url_for('school_admin.announcements_page') }}"
-           class="mt-2 inline-block text-xs font-semibold text-brand-600 hover:underline">
+           class="mt-2 inline-block text-xs font-semibold
+                  text-brand-600 hover:underline">
           Post the first one →
         </a>
       </div>
@@ -242,66 +335,105 @@
 </div>
 
 
-<!-- =========================================================
-     FEE TABLE + ATTENDANCE CHART
-     ========================================================= -->
+{# ── Recent payments + weekly attendance ── #}
 <div class="grid lg:grid-cols-3 gap-6">
 
-  <!-- Recent fee payments (placeholder data) -->
+  {# ── Recent fee payments ── #}
   <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-100 overflow-hidden">
     <div class="p-5 border-b border-slate-100 flex items-center justify-between">
       <h2 class="font-bold">Recent fee payments</h2>
-      <a href="{{ url_for('school_admin.fees_page') }}"
+      <a href="{{ url_for('school_admin.payments_list') }}"
          class="text-brand-600 text-sm font-semibold hover:underline">View all</a>
     </div>
 
-    <div class="overflow-x-auto">
-      <table class="w-full text-sm min-w-[600px]">
-        <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
-          <tr>
-            <th class="text-left px-5 py-3 font-semibold">Student</th>
-            <th class="text-left px-5 py-3 font-semibold">Class</th>
-            <th class="text-left px-5 py-3 font-semibold">Amount</th>
-            <th class="text-left px-5 py-3 font-semibold">Status</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-slate-100">
-          <tr><td colspan="4" class="px-5 py-12 text-center text-slate-500">
-            <div class="w-12 h-12 mx-auto rounded-xl bg-slate-100 grid place-items-center text-slate-400 text-xl">💳</div>
-            <p class="mt-3 font-semibold text-slate-700">No payments yet</p>
-            <p class="mt-1 text-xs">Fee payments appear here as parents pay online.</p>
-          </td></tr>
-        </tbody>
-      </table>
-    </div>
+    {% if recent_payments %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[600px]">
+          <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
+            <tr>
+              <th class="text-left px-5 py-3 font-semibold">Student</th>
+              <th class="text-left px-5 py-3 font-semibold">Class</th>
+              <th class="text-right px-5 py-3 font-semibold">Amount</th>
+              <th class="text-left px-5 py-3 font-semibold">Channel</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            {% for p in recent_payments %}
+              <tr class="hover:bg-slate-50">
+                <td class="px-5 py-3 font-semibold">
+                  {% if p._student %}
+                    {{ p._student.last_name }} {{ p._student.first_name }}
+                  {% else %}—{% endif %}
+                </td>
+                <td class="px-5 py-3 text-slate-600">
+                  {% if p._student and p._student._class %}
+                    {{ p._student._class.name }}
+                  {% else %}—{% endif %}
+                </td>
+                <td class="px-5 py-3 text-right font-bold text-green-700">
+                  {{ format_money(p.amount) }}
+                </td>
+                <td class="px-5 py-3">
+                  <span class="text-xs font-semibold px-2 py-1 rounded
+                        {{ 'bg-emerald-50 text-emerald-700' if p.channel == 'paystack'
+                           else 'bg-blue-50 text-blue-700' if p.channel == 'transfer'
+                           else 'bg-slate-100 text-slate-700' }}">
+                    {{ p.channel|capitalize }}
+                  </span>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="px-5 py-12 text-center text-slate-500">
+        <div class="w-12 h-12 mx-auto rounded-xl bg-slate-100
+                    grid place-items-center text-slate-400 text-xl"
+             aria-hidden="true">💳</div>
+        <p class="mt-3 font-semibold text-slate-700">No payments yet</p>
+        <p class="mt-1 text-xs">Fee payments will appear here as parents pay online.</p>
+      </div>
+    {% endif %}
   </div>
 
-  <!-- Attendance 7 days (placeholder) -->
+  {# ── Weekly attendance bar chart ── #}
   <div class="bg-white rounded-2xl p-6 border border-slate-100">
     <h2 class="font-bold">Attendance (7 days)</h2>
     <p class="text-xs text-slate-500 mt-0.5">Weekly attendance %</p>
 
-    <div class="mt-6 flex items-end gap-2 h-40">
-      {% set bars = [80, 92, 88, 95, 70, 0, 0] %}
-      {% set labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] %}
-      {% for bar in bars %}
-        <div class="flex-1 flex flex-col items-center gap-2">
-          <div class="w-full bg-brand-500 rounded-t transition-all"
-               style="height: {{ bar }}%; min-height: 2px; opacity: {{ '1' if bar else '0.15' }}"></div>
-          <span class="text-[10px] text-slate-500">{{ labels[loop.index0] }}</span>
-        </div>
-      {% endfor %}
-    </div>
+    {% if weekly_attendance %}
+      <div class="mt-6 flex items-end gap-2 h-40">
+        {% for d in weekly_attendance %}
+          <div class="flex-1 flex flex-col items-center gap-2">
+            <div class="w-full rounded-t transition-all
+                        {{ 'bg-brand-500' if d.marked and d.pct >= 75
+                           else 'bg-amber-500' if d.marked
+                           else 'bg-slate-200' }}"
+                 style="height: {{ d.pct if d.marked else 3 }}%;
+                        min-height: 2px;"
+                 title="{{ d.label }}: {{ d.pct }}%"></div>
+            <span class="text-[10px] text-slate-500">{{ d.label }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="py-12 text-center">
+        <div class="w-12 h-12 mx-auto rounded-xl bg-slate-100
+                    grid place-items-center text-slate-400 text-xl"
+             aria-hidden="true">📊</div>
+        <p class="mt-3 text-sm text-slate-500">
+          Mark attendance to see the trend.
+        </p>
+      </div>
+    {% endif %}
   </div>
 </div>
 
 
-<!-- =========================================================
-     NEWEST STUDENTS + ACTIVITY
-     ========================================================= -->
+{# ── Newest students + activity ── #}
 <div class="grid lg:grid-cols-2 gap-6">
 
-  <!-- Newest students -->
   <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
     <div class="p-5 border-b border-slate-100 flex items-center justify-between">
       <h2 class="font-bold">Newest students</h2>
@@ -326,24 +458,31 @@
                 {% if s.gender %} · {{ s.gender|capitalize }}{% endif %}
               </p>
             </div>
+            <a href="{{ url_for('school_admin.student_detail', student_id=s._id) }}"
+               class="text-brand-600 text-xs font-semibold hover:underline shrink-0">
+              View
+            </a>
           </li>
         {% endfor %}
       </ul>
     {% else %}
       <div class="px-5 py-10 text-center">
-        <div class="w-12 h-12 mx-auto rounded-xl bg-slate-100 grid place-items-center text-slate-400 text-xl">👨‍🎓</div>
+        <div class="w-12 h-12 mx-auto rounded-xl bg-slate-100
+                    grid place-items-center text-slate-400 text-xl"
+             aria-hidden="true">👨‍🎓</div>
         <p class="mt-3 font-semibold text-slate-700">No students yet</p>
-        <p class="mt-1 text-xs text-slate-500">Start by admitting your first student.</p>
-        <a href="#"
-           class="mt-3 inline-block px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-700
-                  text-white text-xs font-semibold">
+        <p class="mt-1 text-xs text-slate-500">
+          Start by admitting your first student.
+        </p>
+        <a href="{{ url_for('school_admin.student_new') }}"
+           class="mt-3 inline-block px-3 py-1.5 rounded-lg
+                  bg-brand-600 hover:bg-brand-700 text-white text-xs font-semibold">
           + Admit student
         </a>
       </div>
     {% endif %}
   </div>
 
-  <!-- Recent activity -->
   <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
     <div class="p-5 border-b border-slate-100 flex items-center justify-between">
       <h2 class="font-bold">Recent activity</h2>
@@ -355,7 +494,8 @@
       <ul class="divide-y divide-slate-100 text-sm">
         {% for log in recent_activity %}
           <li class="px-5 py-4 flex items-center gap-3">
-            <span class="text-xs font-mono px-2 py-1 rounded bg-slate-100 text-slate-700 whitespace-nowrap shrink-0">
+            <span class="text-xs font-mono px-2 py-1 rounded bg-slate-100
+                         text-slate-700 whitespace-nowrap shrink-0">
               {{ log.action }}
             </span>
             <span class="text-slate-500 flex-1 truncate text-xs">

@@ -1,23 +1,133 @@
-<nav class="sticky top-0 z-50 bg-white/80 backdrop-blur border-b border-slate-100">
-  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="flex justify-between h-16 items-center">
-      <a href="{{ url_for('main.landing') }}" class="flex items-center gap-2">
-        <div class="w-9 h-9 rounded-xl bg-brand-600 grid place-items-center text-white font-bold">E</div>
-        <span class="font-extrabold text-lg tracking-tight">{{ platform_name }}</span>
+{# templates/_marketing_nav.html #}
+<nav class="bg-white border-b border-slate-100 sticky top-0 z-40"
+     aria-label="Main navigation"
+     x-data="{ open: false }">
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+
+    <!-- Logo -->
+    <a href="{{ url_for('main.landing') }}"
+       class="flex items-center gap-2 shrink-0"
+       aria-label="{{ platform_name }} — Home">
+      <span class="w-8 h-8 rounded-lg bg-brand-600 grid place-items-center
+                   text-white font-extrabold text-sm" aria-hidden="true">
+        E
+      </span>
+      <span class="font-extrabold text-lg">{{ platform_name }}</span>
+    </a>
+
+    <!-- Desktop links -->
+    <div class="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-600">
+
+      {% set nav_links = [
+        ('main.features', 'Features'),
+        ('main.pricing',  'Pricing'),
+        ('main.about',    'About'),
+        ('main.contact',  'Contact'),
+      ] %}
+
+      {% for endpoint, label in nav_links %}
+        {% set is_active = request.endpoint == endpoint %}
+        <a href="{{ url_for(endpoint) }}"
+           class="transition
+                  {% if is_active %}text-brand-600{% else %}hover:text-brand-600{% endif %}">
+          {{ label }}
+        </a>
+      {% endfor %}
+
+      <span class="w-px h-6 bg-slate-200" aria-hidden="true"></span>
+
+      {% if current_user %}
+        {# Already logged in — route to their dashboard #}
+        {% set role_home = {
+          'super_admin':  'super_admin.dashboard',
+          'school_admin': 'school_admin.dashboard',
+          'teacher':      'teacher.dashboard',
+          'student':      'student.dashboard',
+          'parent':       'parent.dashboard',
+          'accountant':   'school_admin.dashboard',
+        }.get(current_user.role, 'main.landing') %}
+
+        <a href="{{ url_for(role_home) }}"
+           class="text-slate-700 hover:text-brand-600">
+          Dashboard
+        </a>
+      {% else %}
+        <a href="{{ url_for('auth.login') }}"
+           class="text-slate-700 hover:text-brand-600">
+          Log in
+        </a>
+      {% endif %}
+
+      <a href="{{ url_for('auth.signup') }}"
+         class="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-700
+                text-white transition">
+        Start free trial
       </a>
-      <div class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-600">
-        <a href="{{ url_for('main.features') }}" class="hover:text-brand-600">Features</a>
-        <a href="{{ url_for('main.pricing') }}" class="hover:text-brand-600">Pricing</a>
-        <a href="{{ url_for('main.about') }}" class="hover:text-brand-600">About</a>
-        <a href="{{ url_for('main.contact') }}" class="hover:text-brand-600">Contact</a>
-      </div>
-      <div class="flex items-center gap-3">
+    </div>
+
+    <!-- Mobile hamburger -->
+    <button type="button"
+            @click="open = !open"
+            :aria-expanded="open.toString()"
+            aria-controls="mobile-menu"
+            class="md:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-700"
+            aria-label="Toggle navigation menu">
+      <svg x-show="!open" class="w-5 h-5" fill="none" stroke="currentColor"
+           viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M4 6h16M4 12h16M4 18h16"/>
+      </svg>
+      <svg x-show="open" x-cloak class="w-5 h-5" fill="none" stroke="currentColor"
+           viewBox="0 0 24 24" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Mobile menu panel -->
+  <div x-show="open"
+       x-cloak
+       x-transition.opacity.duration.200ms
+       id="mobile-menu"
+       class="md:hidden border-t border-slate-100 bg-white">
+    <div class="px-4 py-4 space-y-2 text-sm font-semibold text-slate-700">
+
+      {% for endpoint, label in nav_links %}
+        <a href="{{ url_for(endpoint) }}"
+           @click="open = false"
+           class="block px-3 py-2 rounded-lg hover:bg-slate-50">
+          {{ label }}
+        </a>
+      {% endfor %}
+
+      <div class="pt-3 border-t border-slate-100 space-y-2">
         {% if current_user %}
-          <a href="{{ url_for('auth.logout') }}" class="text-sm font-semibold bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg transition">Log out</a>
+          {% set role_home = {
+            'super_admin':  'super_admin.dashboard',
+            'school_admin': 'school_admin.dashboard',
+            'teacher':      'teacher.dashboard',
+            'student':      'student.dashboard',
+            'parent':       'parent.dashboard',
+            'accountant':   'school_admin.dashboard',
+          }.get(current_user.role, 'main.landing') %}
+
+          <a href="{{ url_for(role_home) }}"
+             class="block px-3 py-2 rounded-lg hover:bg-slate-50">
+            Dashboard
+          </a>
         {% else %}
-          <a href="{{ url_for('auth.login') }}" class="hidden sm:inline text-sm font-semibold text-slate-700 hover:text-brand-600">Log in</a>
-          <a href="{{ url_for('auth.signup') }}" class="text-sm font-semibold bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg transition">Start free trial</a>
+          <a href="{{ url_for('auth.login') }}"
+             class="block px-3 py-2 rounded-lg hover:bg-slate-50">
+            Log in
+          </a>
         {% endif %}
+
+        <a href="{{ url_for('auth.signup') }}"
+           class="block px-3 py-2 rounded-lg bg-brand-600 text-white text-center">
+          Start free trial
+        </a>
       </div>
     </div>
   </div>

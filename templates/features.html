@@ -1,44 +1,67 @@
 {% extends "base.html" %}
+
 {% block title %}Features{% endblock %}
+{% block meta_description %}Every school operation in one platform: admissions, attendance, grades, fees, messaging, reports, and parent/student portals.{% endblock %}
 
 {% block body %}
 {% include "_marketing_nav.html" %}
 
+<!-- ── Hero ───────────────────────────────────────────── -->
 <section class="py-20 bg-white">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="max-w-2xl">
-      <p class="text-sm font-semibold text-brand-600 uppercase tracking-wider">Everything you need</p>
+      <p class="text-sm font-semibold text-brand-600 uppercase tracking-wider">
+        Everything you need
+      </p>
       <h1 class="mt-3 text-4xl sm:text-5xl font-extrabold tracking-tight">
         Every school operation, one platform.
       </h1>
       <p class="mt-4 text-lg text-slate-600">
-        From admissions to report cards, fees to messaging — Everidemy handles it all.
+        From admissions to report cards, fees to messaging —
+        Everidemy handles it all.
       </p>
     </div>
   </div>
 </section>
 
-<!-- Reuse the features grid from landing.html -->
+<!-- ── Feature grid ───────────────────────────────────── -->
 <section class="py-16 bg-slate-50">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
       {% set feature_list = [
-        ('👨‍🎓', 'Student Management', 'Admissions, profiles, ID cards, bulk CSV import, and guardians linking.'),
-        ('👩‍🏫', 'Staff Management', 'Invite teachers, assign roles, track attendance and payroll.'),
-        ('🏛️', 'Classes & Subjects', 'Set up class groups, form teachers, subject assignments.'),
-        ('📋', 'Attendance', 'Mark daily or per period. Parents get notified instantly.'),
-        ('📅', 'Timetable', 'Drag-and-drop scheduling with automatic conflict detection.'),
-        ('📝', 'Exams & Grades', 'CA scores, exam grades, auto-generated PDF report cards.'),
-        ('💳', 'Fees & Paystack', 'Invoices, online payments, auto-reconciliation, receipts.'),
-        ('📢', 'Announcements', 'Broadcast to students, parents, or staff in seconds.'),
-        ('💬', 'Messaging', 'Built-in chat between teachers, parents, and admins.'),
-        ('📈', 'Reports & Analytics', 'Enrollment trends, revenue, attendance, and grade analysis.'),
-        ('🔒', 'Multi-tenant Security', 'Complete data isolation between schools with school_id scoping.'),
-        ('📱', 'Parent & Student Portals', 'Parents check progress and pay fees. Students see grades and timetable.'),
+        ('👨‍🎓', 'Student Management',
+         'Admissions, profiles, ID cards, bulk CSV import, and guardians linking.'),
+        ('👩‍🏫', 'Staff Management',
+         'Invite teachers, assign roles, track attendance and payroll.'),
+        ('🏛️', 'Classes & Subjects',
+         'Set up class groups, form teachers, subject assignments.'),
+        ('📋', 'Attendance',
+         'Mark daily or per period. Parents get notified instantly.'),
+        ('📅', 'Timetable',
+         'Drag-and-drop scheduling with automatic conflict detection.'),
+        ('📝', 'Exams & Grades',
+         'CA scores, exam grades, auto-generated PDF report cards.'),
+        ('💳', 'Fees & Paystack',
+         'Invoices, online payments, auto-reconciliation, receipts.'),
+        ('📢', 'Announcements',
+         'Broadcast to students, parents, or staff in seconds.'),
+        ('💬', 'Messaging',
+         'Built-in chat between teachers, parents, and admins.'),
+        ('📈', 'Reports & Analytics',
+         'Enrollment trends, revenue, attendance, and grade analysis.'),
+        ('🔒', 'Multi-tenant Security',
+         'Complete data isolation between schools with school_id scoping.'),
+        ('📱', 'Parent & Student Portals',
+         'Parents check progress and pay fees. Students see grades and timetable.'),
       ] %}
+
       {% for icon, title, body in feature_list %}
-        <div class="bg-white rounded-2xl p-6 border border-slate-100">
-          <div class="w-11 h-11 rounded-xl bg-brand-50 grid place-items-center text-brand-600 text-xl">{{ icon }}</div>
+        <div class="bg-white rounded-2xl p-6 border border-slate-100
+                    hover:border-brand-400 hover:shadow-lg transition">
+          <div class="w-11 h-11 rounded-xl bg-brand-50 grid place-items-center
+                      text-brand-600 text-xl" aria-hidden="true">
+            {{ icon }}
+          </div>
           <h3 class="mt-4 font-bold text-lg">{{ title }}</h3>
           <p class="mt-2 text-sm text-slate-600">{{ body }}</p>
         </div>
@@ -47,12 +70,17 @@
   </div>
 </section>
 
+<!-- ── CTA ────────────────────────────────────────────── -->
 <section class="py-24 bg-ink-900 text-white">
   <div class="max-w-4xl mx-auto px-4 text-center">
     <h2 class="text-3xl sm:text-4xl font-extrabold">Ready to get started?</h2>
-    <p class="mt-4 text-slate-300">Start your 14-day free trial. No card required.</p>
+    <p class="mt-4 text-slate-300">
+      Start your 14-day free trial. No card required.
+    </p>
     <a href="{{ url_for('auth.signup') }}"
-       class="mt-8 inline-flex items-center px-6 py-3 rounded-xl bg-white text-ink-900 font-semibold hover:bg-slate-100 transition">
+       class="mt-8 inline-flex items-center px-6 py-3 rounded-xl
+              bg-white text-ink-900 font-semibold
+              hover:bg-slate-100 transition">
       Start free trial →
     </a>
   </div>

@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 
 from flask import Blueprint, request, jsonify, current_app
 from bson import ObjectId
+from pymongo.errors import DuplicateKeyError
 
 from config import Config
 from extensions import (
@@ -67,13 +68,18 @@ def _recompute_invoice_webhook(invoice_id, school_id):
     res = list(payments.aggregate(pipeline))
     paid = res[0]["total"] if res else 0
 
-    due = inv.get("amount_due", 0)
+    due = inv.get("amount_due", 0) or 0
     balance = max(due - paid, 0)
 
+    # ── FIXED: handle waived / zero-amount / paid-state edge cases ──
     if inv.get("status") == "waived":
         status = "waived"
         balance = 0
-    elif paid >= due and due > 0:
+    elif due <= 0:
+        # Zero-value invoice: paid if anything was paid, else unpaid
+        status = "paid" if paid > 0 else "unpaid"
+        balance = 0
+    elif paid >= due:
         status = "paid"
     elif paid > 0:
         status = "partial"
@@ -111,16 +117,45 @@ def paystack_webhook():
     data = payload.get("data", {}) or {}
     reference = data.get("reference")
 
-    # ---- 3. Record raw event (skip if no reference AND not a
-    #         reference-less event we care about) ----
-    webhook_events.insert_one({
-        "event": event,
-        "paystack_reference": reference,
-        "payload": payload,
-        "verified": True,
-        "processed": False,
-        "created_at": datetime.utcnow(),
-    })
+    # ---- 3. Record raw event (dedupe-friendly) ----
+    event_id = None
+    try:
+        res = webhook_events.update_one(
+            {
+                "event": event,
+                "paystack_reference": reference,
+                "processed": False,
+            },
+            {
+                "$setOnInsert": {
+                    "event": event,
+                    "paystack_reference": reference,
+                    "payload": payload,
+                    "verified": True,
+                    "processed": False,
+                    "created_at": datetime.utcnow(),
+                },
+            },
+            upsert=True,
+        )
+        event_id = res.upserted_id
+        if event_id is None:
+            # Existing pending event — find it to mark later
+            existing = webhook_events.find_one({
+                "event": event,
+                "paystack_reference": reference,
+                "processed": False,
+            })
+            if existing:
+                event_id = existing["_id"]
+    except DuplicateKeyError:
+        # Unique index (if configured) caught it — fetch the row
+        existing = webhook_events.find_one({
+            "event": event,
+            "paystack_reference": reference,
+        })
+        if existing:
+            event_id = existing["_id"]
 
     # ---- 4. Route by event type ----
     try:
@@ -137,11 +172,18 @@ def paystack_webhook():
     except Exception:
         current_app.logger.exception(f"Webhook failed to process '{event}'")
 
-    # ---- 5. Mark event processed ----
-    webhook_events.update_many(
-        {"event": event, "paystack_reference": reference, "processed": False},
-        {"$set": {"processed": True, "processed_at": datetime.utcnow()}},
-    )
+    # ---- 5. Mark THIS event row processed (by _id, not by reference) ----
+    if event_id:
+        webhook_events.update_one(
+            {"_id": event_id},
+            {"$set": {"processed": True, "processed_at": datetime.utcnow()}},
+        )
+    else:
+        # Fallback — mark any pending rows for this event+reference
+        webhook_events.update_many(
+            {"event": event, "paystack_reference": reference, "processed": False},
+            {"$set": {"processed": True, "processed_at": datetime.utcnow()}},
+        )
 
     return jsonify(status="ok"), 200
 
@@ -168,31 +210,67 @@ def _handle_charge_success(data: dict):
             current_app.logger.warning("charge.success: missing school_id")
             return
 
-        # Idempotency
-        if invoices.find_one({
-            "paystack_reference": reference,
-            "school_id": school_id,
-        }):
+        # ── FIXED: amount check before activating ──
+        expected = float(Config.PAYSTACK_PLATFORM_AMOUNT)
+        if amount_paid + 0.01 < expected:   # allow tiny float rounding
+            current_app.logger.warning(
+                f"[webhook/charge.success] Underpayment — "
+                f"ref={reference} paid={amount_paid} expected={expected}"
+            )
+            audit_logs.insert_one({
+                "school_id": school_id,
+                "actor_id": None,
+                "action": "billing.underpayment",
+                "meta": {
+                    "reference": reference,
+                    "paid": amount_paid,
+                    "expected": expected,
+                    "source": "webhook",
+                },
+                "timestamp": datetime.utcnow(),
+            })
+            return
+
+        plan_obj = data.get("plan") or {}
+        sub_code = plan_obj.get("subscription_code")
+        email_token = plan_obj.get("email_token")
+
+        # Fallback: some Paystack flows send the tokens under data.subscription
+        if not email_token:
+            email_token = (data.get("subscription") or {}).get("email_token")
+        if not sub_code:
+            sub_code = (data.get("subscription") or {}).get("subscription_code")
+
+        next_billing = datetime.utcnow() + timedelta(days=30)
+
+        # ── FIXED: race-safe idempotency using upsert ──
+        result = invoices.update_one(
+            {
+                "paystack_reference": reference,
+                "school_id": school_id,
+            },
+            {
+                "$setOnInsert": {
+                    "school_id": school_id,
+                    "kind": "platform",
+                    "paystack_reference": reference,
+                    "amount": amount_paid,
+                    "currency": Config.PAYSTACK_PLATFORM_CURRENCY,
+                    "status": "paid",
+                    "paid_at": datetime.utcnow(),
+                    "description": f"{Config.PLAN_NAME} subscription",
+                    "created_at": datetime.utcnow(),
+                },
+            },
+            upsert=True,
+        )
+
+        if result.upserted_id is None:
+            # Already processed by the callback or a previous webhook
             current_app.logger.info(
                 f"charge.success: already processed ref={reference}"
             )
             return
-
-        sub_code = (data.get("plan") or {}).get("subscription_code")
-        email_token = (data.get("plan") or {}).get("email_token")
-        next_billing = datetime.utcnow() + timedelta(days=30)
-
-        invoices.insert_one({
-            "school_id": school_id,
-            "kind": "platform",
-            "paystack_reference": reference,
-            "amount": amount_paid,
-            "currency": Config.PAYSTACK_PLATFORM_CURRENCY,
-            "status": "paid",
-            "paid_at": datetime.utcnow(),
-            "description": f"{Config.PLAN_NAME} subscription",
-            "created_at": datetime.utcnow(),
-        })
 
         sub_utils.mark_active(
             school_id,
@@ -255,31 +333,36 @@ def _handle_charge_success(data: dict):
             )
             return
 
-        # Idempotency
-        existing = payments.find_one({
-            "school_id": school_id,
-            "paystack_reference": reference,
-        })
-        if existing:
+        # ── FIXED: race-safe idempotency using upsert ──
+        result = payments.update_one(
+            {
+                "school_id": school_id,
+                "paystack_reference": reference,
+            },
+            {
+                "$setOnInsert": {
+                    "school_id":          school_id,
+                    "invoice_id":         inv_oid,
+                    "student_id":         inv.get("student_id"),
+                    "amount":             amount_paid,
+                    "currency":           Config.CURRENCY,
+                    "channel":            data.get("channel", "paystack"),
+                    "reference":          reference,
+                    "paystack_reference": reference,
+                    "note":               "Online payment via Paystack (webhook)",
+                    "paid_at":            datetime.utcnow(),
+                    "recorded_by":        None,
+                    "created_at":         datetime.utcnow(),
+                },
+            },
+            upsert=True,
+        )
+
+        if result.upserted_id is None:
             current_app.logger.info(
                 f"charge.success/fee_payment: already processed ref={reference}"
             )
             return
-
-        payments.insert_one({
-            "school_id":          school_id,
-            "invoice_id":         inv_oid,
-            "student_id":         inv.get("student_id"),
-            "amount":             amount_paid,
-            "currency":           Config.CURRENCY,
-            "channel":            data.get("channel", "paystack"),
-            "reference":          reference,
-            "paystack_reference": reference,
-            "note":               "Online payment via Paystack (webhook)",
-            "paid_at":            datetime.utcnow(),
-            "recorded_by":        None,
-            "created_at":         datetime.utcnow(),
-        })
 
         _recompute_invoice_webhook(inv_oid, school_id)
 
@@ -330,15 +413,19 @@ def _handle_subscription_create(data: dict):
     email_token = data.get("email_token")
     next_billing = data.get("next_payment_date")
 
-    update = {
+    # ── FIXED: only $set fields we actually have, to avoid clobbering
+    #           existing values with None on partial payloads ──
+    set_ops = {
         "status": "active",
-        "paystack_subscription_code": sub_code,
-        "paystack_email_token": email_token,
         "updated_at": datetime.utcnow(),
     }
+    if sub_code:
+        set_ops["paystack_subscription_code"] = sub_code
+    if email_token:
+        set_ops["paystack_email_token"] = email_token
     if next_billing:
         try:
-            update["next_billing_date"] = datetime.fromisoformat(
+            set_ops["next_billing_date"] = datetime.fromisoformat(
                 next_billing.replace("Z", "+00:00")
             ).replace(tzinfo=None)
         except Exception:
@@ -347,7 +434,7 @@ def _handle_subscription_create(data: dict):
     subscriptions.update_one(
         {"school_id": school_id},
         {
-            "$set": update,
+            "$set": set_ops,
             "$setOnInsert": {
                 "school_id": school_id,
                 "plan": Config.PLAN_KEY,
@@ -357,13 +444,16 @@ def _handle_subscription_create(data: dict):
         upsert=True,
     )
 
-    schools.update_one(
-        {"_id": school_id},
-        {"$set": {
-            "subscription_status": "active",
-            "updated_at": datetime.utcnow(),
-        }},
-    )
+    # ── FIXED: don't activate a suspended school ──
+    school = schools.find_one({"_id": school_id})
+    if school and not school.get("suspended"):
+        schools.update_one(
+            {"_id": school_id},
+            {"$set": {
+                "subscription_status": "active",
+                "updated_at": datetime.utcnow(),
+            }},
+        )
 
     audit_logs.insert_one({
         "school_id": school_id,

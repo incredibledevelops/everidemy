@@ -4,9 +4,9 @@
 
 {% block content %}
 
-<!-- =========================
-     HEALTH CHECK
-     ========================= -->
+{# =========================
+   HEALTH CHECK
+   ========================= #}
 <div class="bg-gradient-to-br from-brand-600 to-brand-800 text-white rounded-2xl p-6">
   <h2 class="font-bold text-lg">Finish setting up your school</h2>
   <p class="text-sm text-brand-100 mt-1">
@@ -38,21 +38,54 @@
 </div>
 
 
-<!-- =========================
-     SETTINGS SECTIONS
-     ========================= -->
-<div class="grid sm:grid-cols-2 gap-4">
-  {% set icons = {
-    'profile':       '🏫',
-    'academic':      '📚',
-    'fees':          '💳',
-    'notifications': '🔔',
-    'team':          '👥',
-    'integrations':  '🔌',
-    'data':          '🔒',
-  } %}
+{# =========================
+   PORTAL ACCESS
+   ========================= #}
+<div>
+  <p class="text-xs uppercase tracking-widest font-bold text-slate-400 mb-3">
+    Portal access
+  </p>
 
-  {% for key, title, desc in sections %}
+  <div class="grid sm:grid-cols-2 gap-4">
+    <a href="{{ url_for('school_admin.portal_access_list') }}"
+       class="group bg-white rounded-2xl border border-slate-100 p-6
+              hover:border-brand-400 hover:shadow-lg transition">
+      <div class="flex items-start gap-4">
+        <div class="w-12 h-12 rounded-xl bg-brand-50 group-hover:bg-brand-100
+                    grid place-items-center text-xl shrink-0"
+             aria-hidden="true">🔑</div>
+        <div class="flex-1 min-w-0">
+          <h3 class="font-bold group-hover:text-brand-600">Parent & Student logins</h3>
+          <p class="text-sm text-slate-500 mt-1">
+            Manage portal accounts, resend credentials, and enable bulk access
+          </p>
+        </div>
+        <span class="text-slate-300 group-hover:text-brand-500 transition shrink-0">→</span>
+      </div>
+    </a>
+  </div>
+</div>
+
+
+{# =========================
+   SETTINGS SECTIONS
+   ========================= #}
+<div>
+  <p class="text-xs uppercase tracking-widest font-bold text-slate-400 mb-3">
+    School settings
+  </p>
+
+  <div class="grid sm:grid-cols-2 gap-4">
+    {% set icons = {
+      'profile':       '🏫',
+      'academic':      '📚',
+      'fees':          '💳',
+      'notifications': '🔔',
+      'team':          '👥',
+      'integrations':  '🔌',
+      'data':          '🔒',
+    } %}
+
     {% set endpoint_map = {
       'profile':       'settings_profile',
       'academic':      'settings_academic',
@@ -62,22 +95,26 @@
       'integrations':  'settings_integrations',
       'data':          'settings_data',
     } %}
-    <a href="{{ url_for('school_admin.' + endpoint_map[key]) }}"
-       class="group bg-white rounded-2xl border border-slate-100 p-6
-              hover:border-brand-400 hover:shadow-lg transition">
-      <div class="flex items-start gap-4">
-        <div class="w-12 h-12 rounded-xl bg-slate-50 group-hover:bg-brand-50
-                    grid place-items-center text-xl shrink-0">
-          {{ icons.get(key, '⚙️') }}
+
+    {% for key, title, desc in sections %}
+      <a href="{{ url_for('school_admin.' + endpoint_map[key]) }}"
+         class="group bg-white rounded-2xl border border-slate-100 p-6
+                hover:border-brand-400 hover:shadow-lg transition">
+        <div class="flex items-start gap-4">
+          <div class="w-12 h-12 rounded-xl bg-slate-50 group-hover:bg-brand-50
+                      grid place-items-center text-xl shrink-0"
+               aria-hidden="true">
+            {{ icons.get(key, '⚙️') }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <h3 class="font-bold group-hover:text-brand-600">{{ title }}</h3>
+            <p class="text-sm text-slate-500 mt-1">{{ desc }}</p>
+          </div>
+          <span class="text-slate-300 group-hover:text-brand-500 transition shrink-0">→</span>
         </div>
-        <div class="flex-1 min-w-0">
-          <h3 class="font-bold group-hover:text-brand-600">{{ title }}</h3>
-          <p class="text-sm text-slate-500 mt-1">{{ desc }}</p>
-        </div>
-        <span class="text-slate-300 group-hover:text-brand-500 transition shrink-0">→</span>
-      </div>
-    </a>
-  {% endfor %}
+      </a>
+    {% endfor %}
+  </div>
 </div>
 
 {% endblock %}

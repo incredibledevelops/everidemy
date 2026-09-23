@@ -1,0 +1,30 @@
+User-agent: *
+
+# Public marketing site
+Allow: /
+Allow: /pricing
+Allow: /features
+Allow: /about
+Allow: /contact
+
+# Authenticated portals — never index these
+Disallow: /super-admin/
+Disallow: /school-admin/
+Disallow: /teacher/
+Disallow: /student/
+Disallow: /parent/
+Disallow: /account/
+
+# Auth & reset flow
+Disallow: /login
+Disallow: /signup
+Disallow: /logout
+Disallow: /forgot-password
+Disallow: /reset-password/
+
+# Webhooks & internal endpoints
+Disallow: /webhooks/
+Disallow: /healthz
+Disallow: /health
+
+Sitemap: https://yourdomain.com/sitemap.xml

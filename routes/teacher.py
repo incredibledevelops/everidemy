@@ -21,6 +21,7 @@ from extensions import (
 )
 from models import School, format_money
 from utils.auth import role_required
+from utils.announcements import visible_for, unread_count, mark_all_read
 
 
 teacher_bp = Blueprint(
@@ -134,10 +135,11 @@ def _message_recipients():
 def inject_teacher_context():
     """
     Values available in every teacher-portal template.
-    Also computes `unread_messages` so the notification bell
-    works on every page without each route passing it.
+    Computes `unread_messages` + `unread_announcements` so the sidebar
+    and notification bell work everywhere without each route passing them.
     """
     unread = 0
+    unread_ann = 0
     try:
         unread = messages.count_documents({
             "school_id": g.school["_id"],
@@ -147,11 +149,17 @@ def inject_teacher_context():
     except Exception:
         pass
 
+    try:
+        unread_ann = unread_count(g.user, g.school["_id"], announcements)
+    except Exception:
+        pass
+
     return {
         "format_money": format_money,
         "currency_symbol": Config.CURRENCY_SYMBOL,
         "currency_code": Config.CURRENCY,
         "unread_messages": unread,
+        "unread_announcements": unread_ann,
     }
 
 
@@ -229,16 +237,8 @@ def dashboard():
         s["_class"]   = class_map.get(s["class_id"])
         s["_subject"] = subj_map.get(s["subject_id"])
 
-    # Recent notices
-    recent_notices = list(
-        announcements.find({
-            "$or": [
-                {"school_id": g.school["_id"]},
-                {"school_id": None},
-            ],
-        })
-        .sort("created_at", -1).limit(4)
-    )
+    # Recent notices — respects audience + expiry
+    recent_notices = visible_for(g.user, g.school["_id"], announcements, limit=4)
 
     return render_template(
         "teacher/dashboard.html",
@@ -302,6 +302,16 @@ def class_detail(class_id):
         students=enrolled,
         attendance_pct=class_att_pct,
     )
+
+
+# =========================================================
+# ANNOUNCEMENTS
+# =========================================================
+@teacher_bp.route("/announcements")
+def announcements_page():
+    rows = visible_for(g.user, g.school["_id"], announcements)
+    mark_all_read(g.user, g.school["_id"], announcements, [a["_id"] for a in rows])
+    return render_template("teacher/announcements.html", announcements=rows)
 
 
 # =========================================================
