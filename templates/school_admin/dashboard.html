@@ -14,7 +14,8 @@
 {% block content %}
 
 {# ── Subscription banner (only when subscription is expiring soon) ── #}
-{% if subscription_days_left is not none and subscription_days_left <= 5 %}
+{% set _days = subscription_days_left if subscription_days_left is defined else None %}
+{% if _days is not none and _days <= 5 %}
   <div class="rounded-2xl bg-gradient-to-r from-amber-50 to-amber-100
               border border-amber-200 p-4
               flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
@@ -23,7 +24,7 @@
                   text-amber-800 shrink-0" aria-hidden="true">⏳</div>
       <div>
         <p class="font-bold text-amber-900">
-          Your subscription ends in {{ subscription_days_left }} day{{ 's' if subscription_days_left != 1 }}
+          Your subscription ends in {{ _days }} day{{ 's' if _days != 1 }}
         </p>
         <p class="text-sm text-amber-800 mt-0.5">
           Renew now to keep using Everidemy without interruption.

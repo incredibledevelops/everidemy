@@ -27,6 +27,7 @@ from extensions import (
 )
 from models import School, Subscription, User, format_money
 from utils.auth import school_required
+from utils import subscription as sub_utils
 from utils.mailer import (
     send_school_invite_email,
     send_portal_credentials_email,
@@ -236,9 +237,6 @@ def dashboard():
     sid = school["_id"]
 
     # ── Paid-subscription gate ──
-    # (school_required already does this, but we double-check here
-    #  to catch any edge case where the school status changed mid-session.)
-    from utils import subscription as sub_utils
     if sub_utils.is_locked(school):
         flash(
             "Your subscription is not active. "
@@ -280,12 +278,11 @@ def dashboard():
         .sort("created_at", -1).limit(5)
     )
 
-    # Filter notices by audience + expiry so admins only see
-    # what's actually visible to their own role
     from utils.announcements import visible_for as _visible
     recent_notices = _visible(g.user, sid, announcements, limit=4)
 
     subscription = Subscription.find_for_school(sid)
+    subscription_days_left = sub_utils.days_left(school)
 
     weekly = []
     for i in range(6, -1, -1):
@@ -310,14 +307,12 @@ def dashboard():
         "read_at": None,
     })
 
-    # ── Enrollment trend for the dashboard chart ──
     try:
         trend_data = enrollment_trend(sid, students, months=6)
     except Exception:
         current_app.logger.exception("Enrollment trend failed")
         trend_data = []
 
-    # ── 5 most recent payments for the dashboard table ──
     recent_payments = list(
         payments.find(tenant_filter({})).sort("paid_at", -1).limit(5)
     )
@@ -353,6 +348,7 @@ def dashboard():
         newest_students=newest_students,
         recent_notices=recent_notices,
         subscription=subscription,
+        subscription_days_left=subscription_days_left,
         weekly_attendance=weekly,
         unread_messages=unread_messages,
         plans=Config.PLANS,
@@ -442,7 +438,6 @@ def student_new():
         result = students.insert_one(doc)
         student_id = result.inserted_id
 
-        # Auto-provision student + guardian portal accounts
         try:
             _provision_portals_for_student(
                 {**doc, "_id": student_id},
@@ -526,7 +521,6 @@ def student_edit(student_id):
         data["updated_at"] = datetime.utcnow()
         students.update_one(tenant_filter({"_id": student["_id"]}), {"$set": data})
 
-        # Re-link guardian portal account if the guardian email changed
         old_guardian_email = (student.get("guardian_email") or "").strip().lower()
         new_guardian_email = (data.get("guardian_email") or "").strip().lower()
 
@@ -812,7 +806,6 @@ def _create_student_portal_account(student_doc, school, actor_id=None):
         if existing:
             return existing, None
 
-    # Students may not have their own email — synthesize one from the school name
     email = (student_doc.get("student_email") or "").strip().lower()
     if not email:
         slug = re.sub(r"[^a-z0-9]+", "", (school.get("name") or "school").lower())[:12]
@@ -872,7 +865,6 @@ def _create_guardian_portal_account(student_doc, school, actor_id=None):
 
     existing = users.find_one({"email": email})
     if existing:
-        # Link this student to the parent's linked_children
         users.update_one(
             {"_id": existing["_id"]},
             {"$addToSet": {"linked_children": student_doc["_id"]}},
@@ -918,16 +910,6 @@ def _send_portal_emails(student_doc, school,
                         student_user, student_pwd,
                         guardian_user, guardian_pwd,
                         actor_id=None):
-    """
-    Send portal credentials.
-
-    The guardian receives ONE email containing:
-      - Their own parent login (real email + temp password)
-      - Their ward's student login (synthetic email + temp password)
-
-    If there's no guardian email on file, we send only to the student's
-    synthetic address (fallback) — otherwise nobody gets notified.
-    """
     from utils.mailer import send_ward_portal_credentials_email
 
     login_url    = url_for("auth.login", _external=True)
@@ -937,7 +919,6 @@ def _send_portal_emails(student_doc, school,
     ).strip()
     school_name  = school["name"]
 
-    # ── Preferred path: send everything to the guardian ──
     guardian_email = (student_doc.get("guardian_email") or "").strip().lower()
     if guardian_email:
         try:
@@ -957,9 +938,6 @@ def _send_portal_emails(student_doc, school,
         except Exception:
             current_app.logger.exception("Guardian credentials email failed")
 
-    # ── Fallback: no guardian email on file → email student address ──
-    # (In practice this address is synthetic and won't be read. But at
-    # least an admin can see the send attempt in logs to diagnose.)
     if student_user and student_pwd and student_user.get("email"):
         try:
             send_portal_credentials_email(
@@ -976,7 +954,6 @@ def _send_portal_emails(student_doc, school,
 
 
 def _provision_portals_for_student(student_doc, school, actor_id=None, send_emails=True):
-    """Create student + guardian portal accounts, optionally email credentials."""
     s_user, s_pwd = _create_student_portal_account(student_doc, school, actor_id)
     g_user, g_pwd = _create_guardian_portal_account(student_doc, school, actor_id)
 
@@ -989,7 +966,6 @@ def _provision_portals_for_student(student_doc, school, actor_id=None, send_emai
 @school_admin_bp.route("/students/portal-access", methods=["GET"])
 @school_required
 def portal_access_list():
-    """Overview of which students/guardians have portal accounts."""
     search = request.args.get("q", "").strip()
 
     q = {"status": "active"}
@@ -1034,7 +1010,6 @@ def portal_access_list():
 @school_admin_bp.route("/students/portal-access/bulk", methods=["POST"])
 @school_required
 def portal_access_bulk():
-    """Enable portal access for every active student who doesn't have it yet."""
     rows = list(students.find(tenant_filter({
         "status": "active",
         "$or": [{"user_id": None}, {"user_id": {"$exists": False}}],
@@ -1080,7 +1055,6 @@ def portal_access_bulk():
 @school_admin_bp.route("/students/<student_id>/portal-access", methods=["POST"])
 @school_required
 def portal_access_for_student(student_id):
-    """Enable (or resend) portal access for a single student + guardian."""
     student = _load_student_or_404(student_id)
     s_user, s_pwd, g_user, g_pwd = _provision_portals_for_student(
         student, g.school, g.user["_id"], send_emails=True,
@@ -1095,7 +1069,6 @@ def portal_access_for_student(student_id):
 @school_admin_bp.route("/students/<student_id>/portal-access/resend", methods=["POST"])
 @school_required
 def portal_access_resend(student_id):
-    """Reset the student + guardian passwords to new ones and re-send."""
     student = _load_student_or_404(student_id)
 
     new_s_pwd = None
