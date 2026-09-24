@@ -5,7 +5,7 @@ Routes:
   GET  /login                    → form
   POST /login                    → authenticate + redirect by role
   GET  /signup                   → form
-  POST /signup                   → create school + first admin, log them in
+  POST /signup                   → create school + first admin, redirect to billing
   GET  /logout                   → clear session
   GET  /forgot-password          → request reset email
   POST /forgot-password          → send reset email
@@ -20,6 +20,7 @@ from flask import (
 )
 from werkzeug.security import generate_password_hash
 
+from config import Config
 from models import School, User
 from extensions import users, audit_logs
 from utils.auth import login_user, logout_user, current_user
@@ -150,11 +151,13 @@ def signup():
         School.log(school["_id"], user["_id"], "school.signup", {"name": school_name})
 
         flash(
-            f"Welcome to Everidemy, {owner_name}! "
-            f"Your 14-day free trial has started.",
+            f"Welcome to {Config.PLATFORM_NAME}, {owner_name}! "
+            f"Complete your subscription to unlock your dashboard.",
             "success",
         )
-        return _redirect_by_role()
+
+        # ── No trial → go straight to billing ──
+        return redirect(url_for("billing.dashboard"))
 
     return render_template("signup.html", form={})
 
@@ -273,7 +276,7 @@ def reset_password(token):
         users.update_one(
             {"_id": user["_id"]},
             {"$set": {
-                "password_hash":      generate_password_hash(password),
+                "password_hash":       generate_password_hash(password),
                 "must_reset_password": False,
                 "password_reset_at":   now,
                 "updated_at":          now,

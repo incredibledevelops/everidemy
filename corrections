@@ -1,0 +1,28 @@
+What still says "14-day free trial" that you should fix
+Search your codebase for these phrases and update them:
+
+templates/pricing.html — "14-day free trial on any plan"
+
+templates/features.html — "Start your 14-day free trial."
+
+templates/signup.html — "Start your 14-day free trial today." and "By continuing you'll start a 14-day free trial"
+
+templates/landing.html — "Start 14-day free trial"
+
+utils/mailer.py — send_welcome_email says "14-day free trial"
+
+Replace each with something like:
+
+Pricing: "Subscribe to unlock. Cancel anytime."
+
+Features: "Ready when you are."
+
+Signup sidebar: "Subscribe monthly to unlock every feature. Cancel anytime."
+
+Signup trust line: "You'll be charged {{ amount }} via Paystack."
+
+Landing: "Get started"
+
+Welcome email: "Your school is live on Everidemy. Subscribe from your billing page to unlock the dashboard."
+
+This response is AI-generated, for reference only.

@@ -10,7 +10,7 @@
     </a>
     <div class="flex items-center gap-3">
       <a href="{{ url_for('auth.login') }}" class="text-sm font-semibold text-slate-700 hover:text-brand-600">Log in</a>
-      <a href="{{ url_for('auth.signup') }}" class="text-sm font-semibold bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg">Start free trial</a>
+      <a href="{{ url_for('auth.signup') }}" class="text-sm font-semibold bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg">Get started</a>
     </div>
   </div>
 </nav>
@@ -18,62 +18,38 @@
 <section class="py-16 sm:py-20">
   <div class="max-w-3xl mx-auto text-center px-4">
     <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight">Simple, honest pricing</h1>
-    <p class="mt-4 text-slate-600">14-day free trial on any plan. No credit card required to start.</p>
+    <p class="mt-4 text-slate-600">One plan. Every feature. Subscribe monthly, cancel anytime.</p>
   </div>
 
-  <div class="max-w-6xl mx-auto px-4 mt-12 grid lg:grid-cols-3 gap-6">
+  <div class="max-w-2xl mx-auto px-4 mt-12">
     {% for key, plan in plans.items() %}
-      {% if key == 'standard' %}
       <div class="relative bg-ink-900 text-white rounded-2xl p-8 flex flex-col ring-4 ring-brand-500/30">
-        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-500 text-white text-xs font-bold px-3 py-1 rounded-full">MOST POPULAR</div>
-        <h3 class="font-bold text-xl">{{ plan.name }}</h3>
-        <p class="text-sm text-slate-300 mt-1">Everything a growing school needs.</p>
+        <div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-brand-500 text-white text-xs font-bold px-3 py-1 rounded-full">EVERYTHING INCLUDED</div>
+        <h3 class="font-bold text-2xl">{{ plan.name }}</h3>
+        <p class="text-sm text-slate-300 mt-1">Everything your school needs, all in one plan.</p>
         <div class="mt-6 flex items-baseline gap-1">
-          <span class="text-4xl font-extrabold">₦{{ '{:,}'.format(plan.price) }}</span>
+          <span class="text-5xl font-extrabold">{{ format_money(plan.price) }}</span>
           <span class="text-slate-400 text-sm">/month</span>
         </div>
         <ul class="mt-6 space-y-3 text-sm flex-1">
-          <li>✅ Up to {{ plan.students or 'unlimited' }} students</li>
-          <li>✅ Parent portal + Paystack fees</li>
-          <li>✅ Report card PDF generator</li>
-          <li>✅ SMS + email notifications</li>
-          <li>✅ Priority support</li>
-        </ul>
-        <a href="{{ url_for('auth.signup') }}?plan={{ key }}"
-           class="mt-8 block text-center py-3 rounded-xl bg-brand-600 hover:bg-brand-700 font-semibold transition">Start free trial</a>
-      </div>
-      {% else %}
-      <div class="bg-white rounded-2xl border border-slate-100 p-8 flex flex-col">
-        <h3 class="font-bold text-xl">{{ plan.name }}</h3>
-        <p class="text-sm text-slate-500 mt-1">
-          {% if key == 'basic' %}For small schools just getting started.{% else %}For large schools with advanced needs.{% endif %}
-        </p>
-        <div class="mt-6 flex items-baseline gap-1">
-          <span class="text-4xl font-extrabold">₦{{ '{:,}'.format(plan.price) }}</span>
-          <span class="text-slate-500 text-sm">/month</span>
-        </div>
-        <ul class="mt-6 space-y-3 text-sm flex-1">
-          <li>✅ Up to {{ plan.students or 'unlimited' }} students</li>
-          {% if key == 'basic' %}
-          <li>✅ Attendance & grading</li>
-          <li>✅ Fee invoicing</li>
+          <li>✅ Unlimited students & staff</li>
+          <li>✅ Parent portal + Paystack fee collection</li>
+          <li>✅ Exams, grades & PDF report cards</li>
+          <li>✅ Attendance, timetable & messaging</li>
+          <li>✅ Announcements & notifications</li>
+          <li>✅ Reports, analytics & CSV exports</li>
           <li>✅ Email support</li>
-          {% else %}
-          <li>✅ Library module</li>
-          <li>✅ Custom domain</li>
-          <li>✅ API access</li>
-          <li>✅ Dedicated account manager</li>
-          {% endif %}
         </ul>
-        <a href="{{ url_for('auth.signup') }}?plan={{ key }}"
-           class="mt-8 block text-center py-3 rounded-xl border border-slate-200 font-semibold hover:border-brand-500 hover:text-brand-600 transition">Start free trial</a>
+        <a href="{{ url_for('auth.signup') }}"
+           class="mt-8 block text-center py-3 rounded-xl bg-brand-600 hover:bg-brand-700 font-semibold transition">
+          Get started →
+        </a>
       </div>
-      {% endif %}
     {% endfor %}
   </div>
 
   <div class="max-w-4xl mx-auto mt-16 px-4 text-center text-sm text-slate-500">
-    All prices in Nigerian Naira (₦). Billed securely via <span class="font-semibold text-slate-700">Paystack</span>. Cancel anytime.
+    All prices in {{ currency_code or 'GHS' }}. Billed securely via <span class="font-semibold text-slate-700">Paystack</span>. Cancel anytime.
   </div>
 </section>
 {% endblock %}

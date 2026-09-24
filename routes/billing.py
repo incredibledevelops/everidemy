@@ -3,12 +3,12 @@ Billing blueprint — the school's subscription management.
 
 Accessible to school admins only. Handles:
 - GET  /school-admin/billing            → status, plan, invoice history
-- POST /school-admin/billing/checkout   → start Paystack subscription
-- GET  /school-admin/billing/callback   → verify payment + activate
-- POST /school-admin/billing/cancel     → cancel subscription
+- POST /school-admin/billing/checkout   → start a one-time Paystack charge
+- GET  /school-admin/billing/callback   → verify payment + activate for 30 days
+- POST /school-admin/billing/cancel     → cancel (locks at end of paid period)
 
-The webhook (routes/webhooks.py) is the authoritative source of truth;
-this blueprint exists so the admin gets immediate feedback after checkout.
+Manual monthly renewal: each month the school pays again through checkout.
+There is no Paystack Plan and no auto-renewal subscription.
 """
 from datetime import datetime, timedelta
 import uuid
@@ -25,8 +25,10 @@ from models import School, format_money
 from utils.auth import current_user, current_school
 from utils import paystack
 from utils import subscription as sub_utils
-from utils.mailer import send_billing_confirmed_email
-
+from utils.mailer import (
+    send_subscription_activated_email,
+    send_subscription_renewed_email,
+)
 
 billing_bp = Blueprint(
     "billing", __name__,
@@ -55,17 +57,11 @@ def _billing_url():
 def _gate():
     """
     Every route in this blueprint requires a logged-in school_admin,
-    EXCEPT /callback (Paystack redirect) and /webhook-adjacent paths.
-
-    We do the check manually instead of stacking @role_required so we
-    can bypass the guard cleanly for the callback endpoint.
+    EXCEPT /callback (Paystack redirect).
     """
-    # The callback must work even if the school state changed mid-flow
     if request.endpoint == "billing.callback":
         user = current_user()
         if not user:
-            # Defensive: if the session was lost, we still can't activate
-            # because we don't know which school to activate.
             flash("Please log in to complete your payment.", "warning")
             return redirect(url_for("auth.login"))
         g.user = user
@@ -113,9 +109,9 @@ def dashboard():
         .limit(24)
     )
 
-    status = school.get("subscription_status", "trialing")
-    days_left = sub_utils.days_left(school)
+    status = school.get("subscription_status", "unpaid")
     expired = sub_utils.is_expired(school)
+    days_left = sub_utils.days_left(school)
 
     return render_template(
         "school_admin/billing.html",
@@ -123,13 +119,11 @@ def dashboard():
         subscription=subscription,
         invoices=platform_invoices,
         status=status,
-        days_left=days_left,
         expired=expired,
+        days_left=days_left,
         amount=Config.PAYSTACK_PLATFORM_AMOUNT,
-        plan_code=Config.PAYSTACK_PLAN_CODE,
         public_key=Config.PAYSTACK_PUBLIC_KEY,
         currency=Config.PAYSTACK_PLATFORM_CURRENCY,
-        grace_days=Config.PAYSTACK_GRACE_DAYS,
         plan_name=Config.PLAN_NAME,
     )
 
@@ -140,21 +134,38 @@ def dashboard():
 @billing_bp.route("/checkout", methods=["POST"])
 def checkout():
     """
-    Initialize a Paystack subscription for this school:
-      1. Ensure a Paystack customer exists.
-      2. Initialize a transaction with the platform plan code.
-      3. Redirect to Paystack checkout.
+    Initialize a ONE-TIME Paystack charge for this school's monthly
+    subscription. No Paystack Plan is involved — schools renew manually.
     """
     school = g.school
     user = g.user
 
     # ---- 0. Config guard ----
-    if not Config.PAYSTACK_SECRET_KEY or not Config.PAYSTACK_PLAN_CODE:
+    missing = []
+    if not Config.PAYSTACK_SECRET_KEY:
+        missing.append("PAYSTACK_SECRET_KEY")
+    if not Config.PAYSTACK_PLATFORM_AMOUNT or int(Config.PAYSTACK_PLATFORM_AMOUNT) <= 0:
+        missing.append("PAYSTACK_PLATFORM_AMOUNT")
+    if not Config.PAYSTACK_PLATFORM_CURRENCY:
+        missing.append("PAYSTACK_PLATFORM_CURRENCY")
+
+    if missing:
+        current_app.logger.error(
+            f"[billing.checkout] Missing/invalid config: {', '.join(missing)}"
+        )
         flash(
-            "Online billing isn't configured. Please contact Everidemy support.",
+            "Online billing isn't configured correctly. "
+            f"Missing: {', '.join(missing)}. Please contact support.",
             "error",
         )
         return redirect(_billing_url())
+
+    current_app.logger.info(
+        f"[billing.checkout] Starting checkout for school={school['_id']} "
+        f"amount={Config.PAYSTACK_PLATFORM_AMOUNT} "
+        f"currency={Config.PAYSTACK_PLATFORM_CURRENCY} "
+        f"sk_prefix={Config.PAYSTACK_SECRET_KEY[:8]}"
+    )
 
     # ---- 1. Ensure Paystack customer exists ----
     customer_code = school.get("paystack_customer_code")
@@ -163,6 +174,9 @@ def checkout():
         first = parts[0] if parts else ""
         last = parts[1] if len(parts) > 1 else ""
 
+        current_app.logger.info(
+            f"[billing.checkout] Creating Paystack customer for {user['email']}"
+        )
         customer = paystack.create_customer(
             email=user["email"],
             first_name=first,
@@ -174,7 +188,14 @@ def checkout():
             },
         )
         if not customer or not customer.get("customer_code"):
-            flash("Could not reach Paystack. Please try again.", "error")
+            current_app.logger.error(
+                f"[billing.checkout] create_customer failed — response={customer}"
+            )
+            flash(
+                "Could not create your Paystack customer profile. "
+                "Please try again or contact support.",
+                "error",
+            )
             return redirect(_billing_url())
 
         customer_code = customer["customer_code"]
@@ -185,25 +206,49 @@ def checkout():
                 "updated_at": datetime.utcnow(),
             }},
         )
+        current_app.logger.info(
+            f"[billing.checkout] Customer created: {customer_code}"
+        )
 
-    # ---- 2. Initialize transaction ----
+    # ---- 2. Initialize a one-time transaction ----
     reference = f"EVD-SUB-{school['_id']}-{uuid.uuid4().hex[:12]}"
     amount_kobo = int(Config.PAYSTACK_PLATFORM_AMOUNT) * 100
+
+    current_app.logger.info(
+        f"[billing.checkout] Initializing one-time transaction — "
+        f"ref={reference} amount_kobo={amount_kobo} customer={customer_code}"
+    )
 
     init = paystack.initialize_transaction(
         email=user["email"],
         amount_kobo=amount_kobo,
         reference=reference,
         callback_url=url_for("billing.callback", _external=True),
-        plan_code=Config.PAYSTACK_PLAN_CODE,
         metadata={
             "school_id": str(school["_id"]),
             "school_name": school["name"],
             "purpose": "everidemy_subscription",
+            "kind": "manual_monthly",
         },
     )
+
     if not init or not init.get("authorization_url"):
-        flash("Could not start checkout. Please try again.", "error")
+        current_app.logger.error(
+            f"[billing.checkout] initialize_transaction failed — "
+            f"response={init!r}"
+        )
+        current_app.logger.error(
+            f"[billing.checkout] Config used: "
+            f"base_url={Config.PAYSTACK_BASE_URL} "
+            f"amount_kobo={amount_kobo} "
+            f"currency={Config.PAYSTACK_PLATFORM_CURRENCY} "
+            f"secret_key_prefix={Config.PAYSTACK_SECRET_KEY[:8] if Config.PAYSTACK_SECRET_KEY else 'NONE'}"
+        )
+        flash(
+            "Could not start checkout. Check the server logs for the "
+            "Paystack error, or contact support.",
+            "error",
+        )
         return redirect(_billing_url())
 
     # Store the reference so we can reconcile
@@ -220,6 +265,10 @@ def checkout():
         "amount": Config.PAYSTACK_PLATFORM_AMOUNT,
     })
 
+    current_app.logger.info(
+        f"[billing.checkout] Redirecting to Paystack: "
+        f"{init['authorization_url']}"
+    )
     return redirect(init["authorization_url"])
 
 
@@ -246,6 +295,10 @@ def callback():
     # ---- Verify with Paystack ----
     tx = paystack.verify_transaction(reference)
     if not tx or tx.get("status") != "success":
+        current_app.logger.warning(
+            f"[billing.callback] Verification failed — ref={reference} "
+            f"tx={tx!r}"
+        )
         flash(
             "We couldn't confirm your payment yet. If you were charged, "
             "your subscription will activate within a few minutes.",
@@ -290,35 +343,16 @@ def callback():
         )
         return redirect(_billing_url())
 
-    # ---- Extract subscription info ----
-    plan_obj = tx.get("plan") or {}
-    sub_code = plan_obj.get("subscription_code")
-    email_token = plan_obj.get("email_token")
-
-    # Prefer Paystack's next_payment_date if present; else 30 days
-    next_billing = None
-    nxt = plan_obj.get("next_payment_date") or tx.get("next_payment_date")
-    if nxt:
-        try:
-            next_billing = datetime.fromisoformat(
-                nxt.replace("Z", "+00:00")
-            ).replace(tzinfo=None)
-        except Exception:
-            next_billing = None
-    if not next_billing:
-        next_billing = datetime.utcnow() + timedelta(days=30)
-
-    if not sub_code:
-        current_app.logger.warning(
-            f"[billing.callback] Paystack returned no subscription_code "
-            f"for reference={reference}"
-        )
+    # ---- Next renewal = 30 days from now (manual) ----
+    next_billing = datetime.utcnow() + timedelta(days=30)
 
     # ---- Idempotency + activation ----
     existing = invoices.find_one({
         "school_id": school["_id"],
         "paystack_reference": reference,
     })
+
+    is_first = False  # default — safe even if we skip the block
 
     if not existing:
         invoices.insert_one({
@@ -333,37 +367,56 @@ def callback():
             "created_at": datetime.utcnow(),
         })
 
-        sub_utils.mark_active(
+        result = sub_utils.mark_active(
             school["_id"],
             plan=Config.PLAN_KEY,
             next_billing=next_billing,
-            subscription_code=sub_code,
-            email_token=email_token,
         )
+        is_first = bool(result.get("is_first_activation"))
 
         School.log(school["_id"], g.user["_id"], "billing.payment_confirmed", {
             "reference": reference,
             "amount": amount_paid,
-            "subscription_code": sub_code,
+            "first_activation": is_first,
             "source": "callback",
         })
 
-        # Confirmation email (best-effort)
+        # ---- Email the school admin ----
         try:
-            send_billing_confirmed_email(
-                school_name=school["name"],
-                email=g.user["email"],
-                amount=amount_paid,
-                next_billing=next_billing,
-            )
+            login_url = url_for("auth.login", _external=True)
+            if is_first:
+                send_subscription_activated_email(
+                    school_name=school["name"],
+                    email=g.user["email"],
+                    amount=amount_paid,
+                    next_billing=next_billing,
+                    login_url=login_url,
+                )
+            else:
+                send_subscription_renewed_email(
+                    school_name=school["name"],
+                    email=g.user["email"],
+                    amount=amount_paid,
+                    next_billing=next_billing,
+                )
         except Exception:
-            current_app.logger.exception("Confirmation email failed")
+            current_app.logger.exception("Subscription email failed")
 
-    flash(
-        f"Payment confirmed — {format_money(amount_paid)}. "
-        f"Your subscription is now active.",
-        "success",
-    )
+    if is_first:
+        flash(
+            f"Payment confirmed — {format_money(amount_paid)}. "
+            f"Your school portal is now active until "
+            f"{next_billing.strftime('%b %d, %Y')}.",
+            "success",
+        )
+    else:
+        flash(
+            f"Renewal confirmed — {format_money(amount_paid)}. "
+            f"Your subscription is active until "
+            f"{next_billing.strftime('%b %d, %Y')}.",
+            "success",
+        )
+
     return redirect(_billing_url())
 
 
@@ -372,7 +425,11 @@ def callback():
 # =========================================================
 @billing_bp.route("/cancel", methods=["POST"])
 def cancel():
-    """Cancel the school's subscription via Paystack."""
+    """
+    Cancel the school's subscription.
+    Because there is no auto-renewal, "cancel" simply means:
+    don't renew at the end of the paid period.
+    """
     school = g.school
     sub = sub_utils.get_subscription(school["_id"])
 
@@ -380,33 +437,13 @@ def cancel():
         flash("No subscription found.", "error")
         return redirect(_billing_url())
 
-    sub_code = sub.get("paystack_subscription_code")
-    email_token = sub.get("paystack_email_token")
+    sub_utils.mark_canceled(school["_id"])
 
-    if sub_code and email_token:
-        ok = paystack.disable_subscription(sub_code, email_token)
-        if not ok:
-            flash(
-                "Could not cancel via Paystack. Please try again, "
-                "or contact support if the issue persists.",
-                "error",
-            )
-            return redirect(_billing_url())
-    else:
-        current_app.logger.warning(
-            f"[billing.cancel] Missing sub_code or email_token for "
-            f"school={school['_id']}"
-        )
-
-    sub_utils.mark_canceled(school["_id"], subscription_code=sub_code)
-
-    School.log(school["_id"], g.user["_id"], "billing.canceled", {
-        "subscription_code": sub_code,
-    })
+    School.log(school["_id"], g.user["_id"], "billing.canceled", {})
 
     flash(
         "Your subscription has been canceled. You'll keep access until the end "
-        "of the current billing period.",
+        "of the current billing period, then you'll need to re-subscribe.",
         "success",
     )
     return redirect(_billing_url())

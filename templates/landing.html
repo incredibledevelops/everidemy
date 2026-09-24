@@ -24,7 +24,7 @@
              class="text-sm font-semibold bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg transition">Log out</a>
         {% else %}
           <a href="{{ url_for('auth.login') }}" class="hidden sm:inline text-sm font-semibold text-slate-700 hover:text-brand-600">Log in</a>
-          <a href="{{ url_for('auth.signup') }}" class="text-sm font-semibold bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg transition">Start free trial</a>
+          <a href="{{ url_for('auth.signup') }}" class="text-sm font-semibold bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg transition">Get started</a>
         {% endif %}
       </div>
     </div>
@@ -48,14 +48,14 @@
         <div class="mt-8 flex flex-col sm:flex-row gap-3">
           <a href="{{ url_for('auth.signup') }}"
              class="inline-flex justify-center items-center px-6 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-lg shadow-brand-600/20 transition">
-            Start 14-day free trial
+            Get started →
           </a>
           <a href="#how"
              class="inline-flex justify-center items-center px-6 py-3 rounded-xl bg-white border border-slate-200 hover:border-slate-300 font-semibold text-slate-700 transition">
-            See how it works →
+            See how it works
           </a>
         </div>
-        <p class="mt-4 text-sm text-slate-500">No credit card required · Cancel anytime</p>
+        <p class="mt-4 text-sm text-slate-500">Subscribe securely via Paystack · Cancel anytime</p>
       </div>
 
       <!-- Dashboard preview mock (unchanged) -->
@@ -160,7 +160,7 @@
       {% set steps = [
         ('1','Create your school','Sign up, verify your email, and complete a short onboarding wizard with your logo and term dates.'),
         ('2','Import your data','Bulk-import students via CSV, invite staff, and set up classes and subjects.'),
-        ('3','Go live & subscribe',"Enjoy 14 days free. When you're ready, subscribe monthly via Paystack — cancel anytime.")
+        ('3','Subscribe & go live','Subscribe monthly via Paystack to unlock your dashboard — cancel anytime.')
       ] %}
       {% for num, title, body in steps %}
       <div class="relative">
@@ -177,12 +177,12 @@
 <section id="testimonials" class="py-24 bg-ink-900 text-white">
   <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
     <p class="text-2xl sm:text-3xl font-semibold leading-snug">
-      “We cut our admin workload by 60%. Fees collection is now automatic and parents love paying online.”
+      "We cut our admin workload by 60%. Fees collection is now automatic and parents love paying online."
     </p>
     <p class="mt-6 text-sm text-slate-400">— Mrs. Adaeze Okonkwo, Proprietress, Greenhill Academy</p>
     <a href="{{ url_for('auth.signup') }}"
        class="mt-10 inline-flex items-center px-6 py-3 rounded-xl bg-white text-ink-900 font-semibold hover:bg-slate-100 transition">
-      Start your free trial →
+      Get started →
     </a>
   </div>
 </section>
@@ -207,8 +207,8 @@
     <div>
       <p class="font-semibold">Company</p>
       <ul class="mt-3 space-y-2 text-slate-500">
-        <li><a href="#" class="hover:text-brand-600">About</a></li>
-        <li><a href="#" class="hover:text-brand-600">Contact</a></li>
+        <li><a href="{{ url_for('main.about') }}" class="hover:text-brand-600">About</a></li>
+        <li><a href="{{ url_for('main.contact') }}" class="hover:text-brand-600">Contact</a></li>
       </ul>
     </div>
     <div>
@@ -219,6 +219,6 @@
       </ul>
     </div>
   </div>
-  <div class="border-t border-slate-100 py-6 text-center text-xs text-slate-500">© 2025 {{ platform_name }}. All rights reserved.</div>
+  <div class="border-t border-slate-100 py-6 text-center text-xs text-slate-500">© {{ now.year }} {{ platform_name }}. All rights reserved.</div>
 </footer>
 {% endblock %}

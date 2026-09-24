@@ -8,19 +8,20 @@ Rules:
 """
 from datetime import datetime, timedelta
 
-from flask import Blueprint, request, jsonify, current_app
+from flask import Blueprint, request, jsonify, current_app, url_for
 from bson import ObjectId
 from pymongo.errors import DuplicateKeyError
 
 from config import Config
 from extensions import (
     schools, users, invoices, payments,
-    audit_logs, webhook_events, subscriptions,
+    audit_logs, webhook_events,
 )
 from utils import paystack
 from utils import subscription as sub_utils
 from utils.mailer import (
-    send_billing_confirmed_email,
+    send_subscription_activated_email,
+    send_subscription_renewed_email,
     send_billing_failed_email,
 )
 
@@ -71,12 +72,10 @@ def _recompute_invoice_webhook(invoice_id, school_id):
     due = inv.get("amount_due", 0) or 0
     balance = max(due - paid, 0)
 
-    # ── FIXED: handle waived / zero-amount / paid-state edge cases ──
     if inv.get("status") == "waived":
         status = "waived"
         balance = 0
     elif due <= 0:
-        # Zero-value invoice: paid if anything was paid, else unpaid
         status = "paid" if paid > 0 else "unpaid"
         balance = 0
     elif paid >= due:
@@ -140,7 +139,6 @@ def paystack_webhook():
         )
         event_id = res.upserted_id
         if event_id is None:
-            # Existing pending event — find it to mark later
             existing = webhook_events.find_one({
                 "event": event,
                 "paystack_reference": reference,
@@ -149,7 +147,6 @@ def paystack_webhook():
             if existing:
                 event_id = existing["_id"]
     except DuplicateKeyError:
-        # Unique index (if configured) caught it — fetch the row
         existing = webhook_events.find_one({
             "event": event,
             "paystack_reference": reference,
@@ -161,10 +158,6 @@ def paystack_webhook():
     try:
         if event == "charge.success":
             _handle_charge_success(data)
-        elif event == "subscription.create":
-            _handle_subscription_create(data)
-        elif event in ("subscription.disable", "subscription.not_renew"):
-            _handle_subscription_disable(data)
         elif event == "invoice.payment_failed":
             _handle_invoice_payment_failed(data)
         else:
@@ -172,14 +165,13 @@ def paystack_webhook():
     except Exception:
         current_app.logger.exception(f"Webhook failed to process '{event}'")
 
-    # ---- 5. Mark THIS event row processed (by _id, not by reference) ----
+    # ---- 5. Mark THIS event row processed ----
     if event_id:
         webhook_events.update_one(
             {"_id": event_id},
             {"$set": {"processed": True, "processed_at": datetime.utcnow()}},
         )
     else:
-        # Fallback — mark any pending rows for this event+reference
         webhook_events.update_many(
             {"event": event, "paystack_reference": reference, "processed": False},
             {"$set": {"processed": True, "processed_at": datetime.utcnow()}},
@@ -203,16 +195,15 @@ def _handle_charge_success(data: dict):
     amount_paid = (data.get("amount", 0) / 100.0)
     purpose = metadata.get("purpose")
 
-    # ---------- Case A: platform subscription ----------
+    # ---------- Case A: platform subscription (one-time charge) ----------
     if purpose == "everidemy_subscription":
         school_id = _school_id_from_metadata(metadata)
         if not school_id:
             current_app.logger.warning("charge.success: missing school_id")
             return
 
-        # ── FIXED: amount check before activating ──
         expected = float(Config.PAYSTACK_PLATFORM_AMOUNT)
-        if amount_paid + 0.01 < expected:   # allow tiny float rounding
+        if amount_paid + 0.01 < expected:
             current_app.logger.warning(
                 f"[webhook/charge.success] Underpayment — "
                 f"ref={reference} paid={amount_paid} expected={expected}"
@@ -231,19 +222,9 @@ def _handle_charge_success(data: dict):
             })
             return
 
-        plan_obj = data.get("plan") or {}
-        sub_code = plan_obj.get("subscription_code")
-        email_token = plan_obj.get("email_token")
-
-        # Fallback: some Paystack flows send the tokens under data.subscription
-        if not email_token:
-            email_token = (data.get("subscription") or {}).get("email_token")
-        if not sub_code:
-            sub_code = (data.get("subscription") or {}).get("subscription_code")
-
         next_billing = datetime.utcnow() + timedelta(days=30)
 
-        # ── FIXED: race-safe idempotency using upsert ──
+        # Race-safe idempotency using upsert
         result = invoices.update_one(
             {
                 "paystack_reference": reference,
@@ -266,19 +247,17 @@ def _handle_charge_success(data: dict):
         )
 
         if result.upserted_id is None:
-            # Already processed by the callback or a previous webhook
             current_app.logger.info(
                 f"charge.success: already processed ref={reference}"
             )
             return
 
-        sub_utils.mark_active(
+        sub_result = sub_utils.mark_active(
             school_id,
             plan=Config.PLAN_KEY,
             next_billing=next_billing,
-            subscription_code=sub_code,
-            email_token=email_token,
         )
+        is_first = bool(sub_result.get("is_first_activation"))
 
         audit_logs.insert_one({
             "school_id": school_id,
@@ -287,24 +266,35 @@ def _handle_charge_success(data: dict):
             "meta": {
                 "reference": reference,
                 "amount": amount_paid,
-                "subscription_code": sub_code,
+                "first_activation": is_first,
                 "source": "webhook",
             },
             "timestamp": datetime.utcnow(),
         })
 
+        # ---- Email the school admin ----
         try:
             school = schools.find_one({"_id": school_id})
             owner_email = _owner_email(school_id)
             if school and owner_email:
-                send_billing_confirmed_email(
-                    school_name=school["name"],
-                    email=owner_email,
-                    amount=amount_paid,
-                    next_billing=next_billing,
-                )
+                login_url = url_for("auth.login", _external=True)
+                if is_first:
+                    send_subscription_activated_email(
+                        school_name=school["name"],
+                        email=owner_email,
+                        amount=amount_paid,
+                        next_billing=next_billing,
+                        login_url=login_url,
+                    )
+                else:
+                    send_subscription_renewed_email(
+                        school_name=school["name"],
+                        email=owner_email,
+                        amount=amount_paid,
+                        next_billing=next_billing,
+                    )
         except Exception:
-            current_app.logger.exception("Confirmation email failed")
+            current_app.logger.exception("Subscription email failed")
 
         return
 
@@ -333,7 +323,6 @@ def _handle_charge_success(data: dict):
             )
             return
 
-        # ── FIXED: race-safe idempotency using upsert ──
         result = payments.update_one(
             {
                 "school_id": school_id,
@@ -382,134 +371,25 @@ def _handle_charge_success(data: dict):
         })
         return
 
-    # ---------- Anything else: log and move on ----------
     current_app.logger.info(
         f"charge.success: unhandled (reference={reference}, purpose={purpose})"
     )
 
 
-def _handle_subscription_create(data: dict):
-    """
-    Paystack created a subscription.
-    Persist subscription_code + email_token on the school's subscription row.
-    """
-    metadata = data.get("metadata") or {}
-    school_id = _school_id_from_metadata(metadata)
-
-    # Fallback: look up by customer email — restrict to school_admins
-    if not school_id:
-        customer = data.get("customer") or {}
-        email = (customer.get("email") or "").lower().strip()
-        if email:
-            user = users.find_one({"email": email, "role": "school_admin"})
-            if user and user.get("school_id"):
-                school_id = user["school_id"]
-
-    if not school_id:
-        current_app.logger.warning("subscription.create: could not resolve school")
-        return
-
-    sub_code = data.get("subscription_code")
-    email_token = data.get("email_token")
-    next_billing = data.get("next_payment_date")
-
-    # ── FIXED: only $set fields we actually have, to avoid clobbering
-    #           existing values with None on partial payloads ──
-    set_ops = {
-        "status": "active",
-        "updated_at": datetime.utcnow(),
-    }
-    if sub_code:
-        set_ops["paystack_subscription_code"] = sub_code
-    if email_token:
-        set_ops["paystack_email_token"] = email_token
-    if next_billing:
-        try:
-            set_ops["next_billing_date"] = datetime.fromisoformat(
-                next_billing.replace("Z", "+00:00")
-            ).replace(tzinfo=None)
-        except Exception:
-            pass
-
-    subscriptions.update_one(
-        {"school_id": school_id},
-        {
-            "$set": set_ops,
-            "$setOnInsert": {
-                "school_id": school_id,
-                "plan": Config.PLAN_KEY,
-                "created_at": datetime.utcnow(),
-            },
-        },
-        upsert=True,
-    )
-
-    # ── FIXED: don't activate a suspended school ──
-    school = schools.find_one({"_id": school_id})
-    if school and not school.get("suspended"):
-        schools.update_one(
-            {"_id": school_id},
-            {"$set": {
-                "subscription_status": "active",
-                "updated_at": datetime.utcnow(),
-            }},
-        )
-
-    audit_logs.insert_one({
-        "school_id": school_id,
-        "actor_id": None,
-        "action": "billing.subscription_created",
-        "meta": {"subscription_code": sub_code, "source": "webhook"},
-        "timestamp": datetime.utcnow(),
-    })
-
-
-def _handle_subscription_disable(data: dict):
-    """
-    Subscription canceled / not renewing.
-    Mark the school canceled but keep access until next_billing_date.
-    """
-    sub_code = data.get("subscription_code")
-    if not sub_code:
-        current_app.logger.warning("subscription.disable: no subscription_code")
-        return
-
-    sub = subscriptions.find_one({"paystack_subscription_code": sub_code})
-    if not sub:
-        current_app.logger.warning(f"subscription.disable: unknown code {sub_code}")
-        return
-
-    school_id = sub["school_id"]
-    sub_utils.mark_canceled(school_id, subscription_code=sub_code)
-
-    audit_logs.insert_one({
-        "school_id": school_id,
-        "actor_id": None,
-        "action": "billing.subscription_canceled",
-        "meta": {"subscription_code": sub_code, "source": "webhook"},
-        "timestamp": datetime.utcnow(),
-    })
-
-
 def _handle_invoice_payment_failed(data: dict):
     """
     A renewal charge failed.
-    Mark the school past_due and email the owner.
+    With manual renewal there's no auto-charge, so this is only relevant
+    if a one-time charge somehow fails. Mark the school past_due and email.
     """
     metadata = data.get("metadata") or {}
     school_id = _school_id_from_metadata(metadata)
-
-    sub_code = (data.get("subscription") or {}).get("subscription_code")
-    if not school_id and sub_code:
-        sub = subscriptions.find_one({"paystack_subscription_code": sub_code})
-        if sub:
-            school_id = sub["school_id"]
 
     if not school_id:
         current_app.logger.warning("invoice.payment_failed: could not resolve school")
         return
 
-    sub_utils.mark_past_due(school_id, subscription_code=sub_code)
+    sub_utils.mark_past_due(school_id)
 
     amount = (data.get("amount", 0) / 100.0)
     school = schools.find_one({"_id": school_id})
@@ -521,7 +401,7 @@ def _handle_invoice_payment_failed(data: dict):
                 school_name=school["name"],
                 email=owner_email,
                 amount=amount,
-                grace_days=Config.PAYSTACK_GRACE_DAYS,
+                grace_days=0,
             )
     except Exception:
         current_app.logger.exception("Billing failed email failed")
@@ -531,7 +411,6 @@ def _handle_invoice_payment_failed(data: dict):
         "actor_id": None,
         "action": "billing.payment_failed",
         "meta": {
-            "subscription_code": sub_code,
             "amount": amount,
             "source": "webhook",
         },

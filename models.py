@@ -52,11 +52,14 @@ class School:
     def create(name, owner_email, owner_name, password=None, phone=None,
                plan=None, address=None, type=None, send_welcome=False):
         """
-        Create a school + its first admin user + a trial subscription.
+        Create a school + its first admin user + a subscription row.
+
+        The school starts in status "unpaid" and is LOCKED until the
+        admin completes a Paystack checkout. There is no trial period.
+
         Returns (school_doc, user_doc) both including `_id`.
         """
         now = _now()
-        trial_end = now + timedelta(days=Config.TRIAL_DAYS)
         plan = plan or Config.PLAN_KEY
 
         school_doc = {
@@ -64,8 +67,8 @@ class School:
             "type": (type or "primary").lower(),
             "logo": None,
             "plan": plan,
-            "subscription_status": "trialing",
-            "trial_ends_at": trial_end,
+            "subscription_status": "unpaid",   # locked until paid
+            "trial_ends_at": None,             # no trial
             "paystack_customer_code": None,
             "phone": phone,
             "address": address or {},
@@ -90,15 +93,15 @@ class School:
         }
         user_id = users.insert_one(user_doc).inserted_id
 
-        # Subscription row
+        # Subscription row — status starts as "unpaid"
         subscriptions.insert_one({
             "school_id": school_id,
             "plan": plan,
             "paystack_subscription_code": None,
-            "status": "trialing",
+            "status": "unpaid",
             "amount": Config.PLAN_PRICE,
             "currency": Config.CURRENCY,
-            "next_billing_date": trial_end,
+            "next_billing_date": None,
             "created_at": now,
         })
 
@@ -358,7 +361,9 @@ class Analytics:
     def platform_metrics():
         total_schools   = schools.count_documents({})
         active_schools  = schools.count_documents({"subscription_status": "active"})
-        trialing        = schools.count_documents({"subscription_status": "trialing"})
+        unpaid          = schools.count_documents({"subscription_status": "unpaid"})
+        past_due        = schools.count_documents({"subscription_status": "past_due"})
+        canceled        = schools.count_documents({"subscription_status": "canceled"})
         suspended       = schools.count_documents({"suspended": True})
 
         # Single-plan model: MRR = active schools × plan price
@@ -370,7 +375,9 @@ class Analytics:
         return {
             "total_schools":   total_schools,
             "active_schools":  active_schools,
-            "trialing":        trialing,
+            "unpaid":          unpaid,
+            "past_due":        past_due,
+            "canceled":        canceled,
             "suspended":       suspended,
             "mrr":             mrr,
             "arr":             mrr * 12,

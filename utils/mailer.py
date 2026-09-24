@@ -80,18 +80,17 @@ def _send(subject: str, recipients: list, html: str, text: str = None):
 # =====================================================================
 def send_welcome_email(school_name: str, owner_name: str, email: str):
     """Sent when a school signs up or is created by the super admin."""
-    trial_days = Config.TRIAL_DAYS
     body = f"""
       <h2 style="margin-top:0;">Welcome to {Config.PLATFORM_NAME}, {owner_name}! 🎉</h2>
       <p>Your school <strong>{school_name}</strong> is now live on {Config.PLATFORM_NAME}.</p>
-      <p>You have a <strong>{trial_days}-day free trial</strong>. No payment required until it ends.</p>
+      <p>Subscribe to unlock your dashboard, staff, students, and parent portals.</p>
       <p style="color:#64748b;font-size:13px;margin-top:24px;">
         Log in with your email: <strong>{email}</strong>
       </p>
       <p style="margin-top:24px;">
         <a href="#"
            style="display:inline-block;background:#2036e0;color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-weight:600;">
-          Open my dashboard
+          Go to billing
         </a>
       </p>
       <p style="color:#64748b;font-size:13px;margin-top:32px;">
@@ -191,52 +190,143 @@ def send_custom_email(to_email: str, subject: str, message: str):
 
 
 # =========================================================
-# BILLING EMAILS
+# SUBSCRIPTION / BILLING EMAILS
 # =========================================================
-def send_billing_confirmed_email(school_name: str, email: str, amount: float,
-                                  next_billing):
-    """Sent after a successful subscription charge."""
+def send_subscription_activated_email(
+    school_name: str,
+    email: str,
+    amount: float,
+    next_billing,
+    login_url: str = "",
+):
+    """
+    Sent the FIRST time a school pays.
+    Congratulates them on activating their account.
+    """
     sym = Config.CURRENCY_SYMBOL
+    login_block = ""
+    if login_url:
+        login_block = f"""
+          <p style="margin:24px 0;">
+            <a href="{login_url}"
+               style="display:inline-block;background:#2036e0;color:#fff;
+                      padding:12px 24px;border-radius:10px;text-decoration:none;
+                      font-weight:600;">
+              Open my dashboard
+            </a>
+          </p>
+        """
+
     body = f"""
-      <h2 style="margin-top:0;color:#16a34a;">✅ Payment received</h2>
+      <h2 style="margin-top:0;color:#16a34a;">🎉 Your account is now active!</h2>
       <p>Hi {school_name} admin,</p>
-      <p>Your {Config.PLATFORM_NAME} subscription payment of
-         <strong>{sym} {amount:,.2f}</strong> was successful.</p>
+      <p>
+        Welcome aboard. Your first {Config.PLATFORM_NAME} subscription payment of
+        <strong>{sym} {amount:,.2f}</strong> was successful, and your school
+        portal is now fully unlocked.
+      </p>
+
       <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:16px;
                   border-radius:8px;margin:16px 0;">
-        <p style="margin:0;font-size:13px;color:#166534;">Next billing date</p>
+        <p style="margin:0;font-size:13px;color:#166534;">Active until</p>
         <p style="margin:4px 0 0;font-size:18px;font-weight:700;color:#166534;">
           {next_billing.strftime('%B %d, %Y')}
         </p>
       </div>
-      <p>Your account is active. No action required.</p>
+
+      <p>What's now available to your school:</p>
+      <ul style="padding-left:18px;color:#334155;">
+        <li>Full admin dashboard</li>
+        <li>Teacher, student, and parent portals</li>
+        <li>Fee invoicing &amp; Paystack payments</li>
+        <li>Attendance, grades, report cards, and messaging</li>
+      </ul>
+
+      {login_block}
+
       <p style="color:#64748b;font-size:13px;margin-top:32px;">
-        You can download receipts anytime from your billing page.
+        Renewals are manual — you'll be prompted to pay again before
+        <strong>{next_billing.strftime('%B %d, %Y')}</strong>.
       </p>
     """
     return _send(
-        subject=f"{Config.PLATFORM_NAME} — Payment received ✓",
+        subject=f"🎉 {Config.PLATFORM_NAME} — Your school is now active",
         recipients=[email],
         html=_wrap(body),
     )
 
 
+def send_subscription_renewed_email(
+    school_name: str,
+    email: str,
+    amount: float,
+    next_billing,
+):
+    """
+    Sent every time an existing school renews.
+    """
+    sym = Config.CURRENCY_SYMBOL
+    body = f"""
+      <h2 style="margin-top:0;color:#16a34a;">✅ Subscription renewed</h2>
+      <p>Hi {school_name} admin,</p>
+      <p>
+        Your {Config.PLATFORM_NAME} subscription renewal of
+        <strong>{sym} {amount:,.2f}</strong> was successful.
+        Your school portal remains fully active.
+      </p>
+
+      <div style="background:#f0fdf4;border-left:4px solid #16a34a;padding:16px;
+                  border-radius:8px;margin:16px 0;">
+        <p style="margin:0;font-size:13px;color:#166534;">Active until</p>
+        <p style="margin:4px 0 0;font-size:18px;font-weight:700;color:#166534;">
+          {next_billing.strftime('%B %d, %Y')}
+        </p>
+      </div>
+
+      <p>No action required.</p>
+
+      <p style="color:#64748b;font-size:13px;margin-top:32px;">
+        You can view receipts anytime from your billing page.
+        Reminder: renewals are manual, so you'll be prompted again before
+        {next_billing.strftime('%B %d, %Y')}.
+      </p>
+    """
+    return _send(
+        subject=f"{Config.PLATFORM_NAME} — Subscription renewed ✓",
+        recipients=[email],
+        html=_wrap(body),
+    )
+
+
+def send_billing_confirmed_email(school_name: str, email: str, amount: float,
+                                  next_billing):
+    """
+    Legacy alias kept for compatibility with the webhook's import.
+    Delegates to the renewed-email template.
+    """
+    return send_subscription_renewed_email(
+        school_name=school_name,
+        email=email,
+        amount=amount,
+        next_billing=next_billing,
+    )
+
+
 def send_billing_failed_email(school_name: str, email: str, amount: float,
                                grace_days: int):
-    """Sent when a renewal charge fails."""
+    """Sent when a charge fails."""
     sym = Config.CURRENCY_SYMBOL
     body = f"""
       <h2 style="margin-top:0;color:#dc2626;">⚠️ Payment failed</h2>
       <p>Hi {school_name} admin,</p>
-      <p>We couldn't process your {Config.PLATFORM_NAME} subscription renewal of
+      <p>We couldn't process your {Config.PLATFORM_NAME} subscription payment of
          <strong>{sym} {amount:,.2f}</strong>.</p>
-      <p>You have <strong>{grace_days} days</strong> to update your payment method
-         before your account is temporarily locked.</p>
+      <p>Please try again from your billing page to keep your school portal active.</p>
       <p style="margin-top:24px;">
         <a href="#" style="display:inline-block;background:#dc2626;color:#fff;
                            padding:12px 24px;border-radius:10px;text-decoration:none;
                            font-weight:600;">
-          Update payment method
+          Retry payment
         </a>
       </p>
       <p style="color:#64748b;font-size:13px;margin-top:32px;">
@@ -253,21 +343,19 @@ def send_billing_failed_email(school_name: str, email: str, amount: float,
 def send_billing_locked_email(school_name: str, email: str):
     """
     Sent when the school's access has been locked due to non-payment.
-
-    Wired up by a future scheduled job (checks `past_due` schools whose
-    grace period has lapsed and calls this helper once).
     """
     body = f"""
-      <h2 style="margin-top:0;color:#dc2626;">🔒 Your account is locked</h2>
+      <h2 style="margin-top:0;color:#dc2626;">🔒 Your school portal is locked</h2>
       <p>Hi {school_name} admin,</p>
-      <p>Your {Config.PLATFORM_NAME} subscription could not be renewed and your
-         account has been temporarily locked.</p>
-      <p>To restore access, please update your payment method:</p>
+      <p>Your {Config.PLATFORM_NAME} subscription has expired, and access to
+         your school portal — including staff, student, and parent logins —
+         is now paused.</p>
+      <p>To restore access, renew from your billing page:</p>
       <p style="margin-top:24px;">
         <a href="#" style="display:inline-block;background:#16a34a;color:#fff;
                            padding:12px 24px;border-radius:10px;text-decoration:none;
                            font-weight:600;">
-          Restore access
+          Renew subscription
         </a>
       </p>
       <p>Your data is safe and will be waiting for you.</p>
@@ -356,12 +444,7 @@ def send_ward_portal_credentials_email(
 ):
     """
     Sent to a guardian when their ward's portal account is created.
-
-    Contains credentials for BOTH the guardian and the student,
-    so the guardian can hand off the student login to their child.
-
-    Either credential block is skipped if the corresponding password
-    is None (e.g. account already existed and wasn't re-provisioned).
+    Contains credentials for BOTH the guardian and the student.
     """
     guardian_block = ""
     if guardian_password:

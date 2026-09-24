@@ -235,6 +235,18 @@ def dashboard():
     school = g.school
     sid = school["_id"]
 
+    # ── Paid-subscription gate ──
+    # (school_required already does this, but we double-check here
+    #  to catch any edge case where the school status changed mid-session.)
+    from utils import subscription as sub_utils
+    if sub_utils.is_locked(school):
+        flash(
+            "Your subscription is not active. "
+            "Complete payment to unlock your dashboard.",
+            "warning",
+        )
+        return redirect(url_for("billing.dashboard"))
+
     total_students = students.count_documents(tenant_filter({"status": "active"}))
     total_staff    = staff.count_documents(tenant_filter({"status": "active"}))
 
@@ -274,10 +286,6 @@ def dashboard():
     recent_notices = _visible(g.user, sid, announcements, limit=4)
 
     subscription = Subscription.find_for_school(sid)
-    trial_days_left = None
-    if school.get("subscription_status") == "trialing" and school.get("trial_ends_at"):
-        delta = (school["trial_ends_at"] - datetime.utcnow()).days
-        trial_days_left = max(delta, 0)
 
     weekly = []
     for i in range(6, -1, -1):
@@ -345,7 +353,6 @@ def dashboard():
         newest_students=newest_students,
         recent_notices=recent_notices,
         subscription=subscription,
-        trial_days_left=trial_days_left,
         weekly_attendance=weekly,
         unread_messages=unread_messages,
         plans=Config.PLANS,
