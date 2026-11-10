@@ -101,7 +101,7 @@ def contact():
                 f"{message}"
             )
             send_custom_email(
-                to_email="support@everidemy.com",
+                to_email="everidemy@gmail.com",
                 subject=subject,
                 message=body,
             )
