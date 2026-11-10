@@ -13,6 +13,7 @@ No prefix. Routes:
   GET  /sitemap.xml  → XML sitemap for SEO
 """
 from datetime import datetime
+from flask import current_app
 
 from flask import (
     Blueprint, render_template, Response, request,
