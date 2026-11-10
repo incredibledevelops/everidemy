@@ -1,15 +1,30 @@
 {% extends "base.html" %}
 {% block title %}Access denied{% endblock %}
+{% block head %}<meta name="robots" content="noindex">{% endblock %}
+
 {% block body %}
-<div class="min-h-screen grid place-items-center px-4">
-  <div class="text-center max-w-md">
+<div class="min-h-screen grid place-items-center px-4 py-16">
+  <div class="text-center max-w-md" role="alert">
     <p class="text-7xl font-extrabold text-brand-600">403</p>
     <h1 class="mt-4 text-2xl font-bold">Access denied</h1>
-    <p class="mt-2 text-slate-500">You don't have permission to view this page.</p>
-    <a href="{{ url_for('main.landing') }}"
-       class="mt-6 inline-flex px-5 py-3 rounded-xl bg-brand-600 text-white font-semibold hover:bg-brand-700 transition">
-      Back to home
-    </a>
+    <p class="mt-2 text-slate-500">
+      You don't have permission to view this page.
+    </p>
+    <p class="mt-1 text-sm text-slate-500">
+      If you think this is a mistake, contact your school admin.
+    </p>
+    <div class="mt-6 flex flex-col sm:flex-row justify-center gap-3">
+      <a href="{{ url_for('main.contact') }}"
+         class="inline-flex justify-center px-5 py-3 rounded-xl border border-slate-200
+                text-slate-700 font-semibold hover:bg-slate-50 transition">
+        Contact support
+      </a>
+      <a href="{{ url_for('main.landing') }}"
+         class="inline-flex justify-center px-5 py-3 rounded-xl bg-brand-600
+                text-white font-semibold hover:bg-brand-700 transition">
+        Back to home
+      </a>
+    </div>
   </div>
 </div>
 {% endblock %}

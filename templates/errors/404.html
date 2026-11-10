@@ -1,15 +1,38 @@
 {% extends "base.html" %}
-{% block title %}Not found{% endblock %}
+{% block title %}Page not found{% endblock %}
+{% block head %}<meta name="robots" content="noindex">{% endblock %}
+
 {% block body %}
-<div class="min-h-screen grid place-items-center px-4">
-  <div class="text-center max-w-md">
+<div class="min-h-screen grid place-items-center px-4 py-16">
+  <div class="text-center max-w-md" role="alert">
     <p class="text-7xl font-extrabold text-brand-600">404</p>
     <h1 class="mt-4 text-2xl font-bold">Page not found</h1>
-    <p class="mt-2 text-slate-500">The page you're looking for doesn't exist or has moved.</p>
-    <a href="{{ url_for('main.landing') }}"
-       class="mt-6 inline-flex px-5 py-3 rounded-xl bg-brand-600 text-white font-semibold hover:bg-brand-700 transition">
-      Back to home
-    </a>
+    <p class="mt-2 text-slate-500">
+      The page you're looking for doesn't exist or has moved.
+    </p>
+    <div class="mt-6 flex flex-col sm:flex-row justify-center gap-3">
+      <button type="button" onclick="history.back()"
+              class="inline-flex justify-center px-5 py-3 rounded-xl border border-slate-200
+                     text-slate-700 font-semibold hover:bg-slate-50 transition">
+        ← Go back
+      </button>
+      <a href="{{ url_for('main.landing') }}"
+         class="inline-flex justify-center px-5 py-3 rounded-xl bg-brand-600
+                text-white font-semibold hover:bg-brand-700 transition">
+        Back to home
+      </a>
+    </div>
+
+    {# Helpful links #}
+    <div class="mt-10 pt-6 border-t border-slate-100 text-sm text-slate-500">
+      <p class="font-semibold text-slate-600">Try these instead</p>
+      <div class="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1">
+        <a href="{{ url_for('main.features') }}" class="hover:text-brand-600">Features</a>
+        <a href="{{ url_for('main.pricing') }}"  class="hover:text-brand-600">Pricing</a>
+        <a href="{{ url_for('main.about') }}"    class="hover:text-brand-600">About</a>
+        <a href="{{ url_for('main.contact') }}"  class="hover:text-brand-600">Contact</a>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}

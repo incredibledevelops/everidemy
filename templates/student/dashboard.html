@@ -1,46 +1,62 @@
 {% extends "student/base.html" %}
-{% block page_title %}Hi {{ student.first_name }} 👋{% endblock %}
+{% block page_title %}Hi {{ (student.first_name if student else 'there') or 'there' }} 👋{% endblock %}
 {% block breadcrumb %}Overview{% endblock %}
 
 {% block content %}
 
+{# Safe defaults #}
+{% set _klass    = klass if klass is defined else none %}
+{% set _att_pct  = att_pct if att_pct is defined and att_pct is not none else 0 %}
+{% set _att_c    = att_counts if att_counts is defined and att_counts else {} %}
+{% set _att_pres = _att_c.get('present', 0) if _att_c.get is defined else (_att_c.present if _att_c.present is defined else 0) %}
+{% set _avg      = average if average is defined and average is not none else 0 %}
+{% set _bal      = balance if balance is defined and balance is not none else 0 %}
+{% set _due      = total_due if total_due is defined and total_due is not none else 0 %}
+{% set _term     = term if term is defined and term else '' %}
+{% set _slots    = today_slots if today_slots is defined and today_slots else [] %}
+{% set _notices  = recent_notices if recent_notices is defined and recent_notices else [] %}
+
 <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Class</p>
-    <p class="mt-2 text-xl font-extrabold">{{ klass.name if klass else '—' }}</p>
-    <p class="mt-1 text-xs text-slate-500">{{ student.admission_no }}</p>
+    <p class="mt-2 text-xl font-extrabold">{{ (_klass.name if _klass and _klass.name else '—') }}</p>
+    <p class="mt-1 text-xs text-slate-500">{{ student.admission_no or '—' }}</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Attendance</p>
-    <p class="mt-2 text-3xl font-extrabold">{{ att_pct }}%</p>
-    <p class="mt-1 text-xs text-slate-500">{{ att_counts.present }} present</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ _att_pct }}%</p>
+    <p class="mt-1 text-xs text-slate-500">{{ _att_pres }} present</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Average</p>
-    <p class="mt-2 text-3xl font-extrabold text-brand-600">{{ average }}%</p>
-    <p class="mt-1 text-xs text-slate-500">{{ term|capitalize }} term</p>
+    <p class="mt-2 text-3xl font-extrabold text-brand-600">{{ _avg }}%</p>
+    <p class="mt-1 text-xs text-slate-500">{{ _term|capitalize if _term else '—' }} term</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Fees balance</p>
     <p class="mt-2 text-3xl font-extrabold
-              {{ 'text-red-600' if balance > 0 else 'text-green-600' }}">
-      {{ format_money(balance) }}
+              {{ 'text-red-600' if _bal > 0 else 'text-green-600' }}">
+      {{ format_money(_bal) }}
     </p>
-    <p class="mt-1 text-xs text-slate-500">of {{ format_money(total_due) }}</p>
+    <p class="mt-1 text-xs text-slate-500">of {{ format_money(_due) }}</p>
   </div>
 </div>
 
 <div class="grid lg:grid-cols-2 gap-6">
   <div class="bg-white rounded-2xl border border-slate-100 p-6">
     <h2 class="font-bold">Today's classes</h2>
-    {% if today_slots %}
+    {% if _slots %}
       <ul class="mt-4 space-y-2">
-        {% for s in today_slots %}
+        {% for s in _slots %}
           <li class="flex items-center gap-3 p-3 rounded-lg bg-slate-50">
-            <div class="w-1 h-10 rounded bg-brand-500"></div>
+            <div class="w-1 h-10 rounded bg-brand-500" aria-hidden="true"></div>
             <div class="flex-1 min-w-0">
-              <p class="font-semibold text-sm">{{ s._subject.name if s._subject else '—' }}</p>
-              <p class="text-xs text-slate-500">{{ s.start }} – {{ s.end }}{% if s.room %} · {{ s.room }}{% endif %}</p>
+              <p class="font-semibold text-sm">
+                {{ (s._subject.name if s._subject else none) or '—' }}
+              </p>
+              <p class="text-xs text-slate-500">
+                {{ s.start or '?' }} – {{ s.end or '?' }}{% if s.room %} · {{ s.room }}{% endif %}
+              </p>
             </div>
           </li>
         {% endfor %}
@@ -52,12 +68,14 @@
 
   <div class="bg-white rounded-2xl border border-slate-100 p-6">
     <h2 class="font-bold">Recent notices</h2>
-    {% if recent_notices %}
+    {% if _notices %}
       <ul class="mt-4 space-y-3">
-        {% for n in recent_notices %}
+        {% for n in _notices %}
           <li class="border-l-2 border-brand-500 pl-3">
-            <p class="font-semibold text-sm truncate">{{ n.title }}</p>
-            <p class="text-xs text-slate-500">{{ n.created_at.strftime('%b %d') if n.created_at }}</p>
+            <p class="font-semibold text-sm truncate">{{ n.title or '(Untitled)' }}</p>
+            <p class="text-xs text-slate-500">
+              {{ n.created_at.strftime('%b %d') if n.created_at else '—' }}
+            </p>
           </li>
         {% endfor %}
       </ul>

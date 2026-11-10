@@ -4,39 +4,48 @@
 
 {% block content %}
 
+{% set _due     = total_due  if total_due  is defined and total_due  is not none else 0 %}
+{% set _paid    = total_paid if total_paid is defined and total_paid is not none else 0 %}
+{% set _bal     = balance    if balance    is defined and balance    is not none else 0 %}
+{% set _invoices = invoices  if invoices   is defined and invoices   else [] %}
+
 <div class="grid sm:grid-cols-3 gap-4">
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Total due</p>
-    <p class="mt-2 text-2xl font-extrabold">{{ format_money(total_due) }}</p>
+    <p class="mt-2 text-2xl font-extrabold">{{ format_money(_due) }}</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-green-700">Paid</p>
-    <p class="mt-2 text-2xl font-extrabold text-green-600">{{ format_money(total_paid) }}</p>
+    <p class="mt-2 text-2xl font-extrabold text-green-600">{{ format_money(_paid) }}</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold
-              {{ 'text-red-700' if balance > 0 else 'text-slate-500' }}">Balance</p>
+              {{ 'text-red-700' if _bal > 0 else 'text-slate-500' }}">Balance</p>
     <p class="mt-2 text-2xl font-extrabold
-              {{ 'text-red-600' if balance > 0 else 'text-slate-700' }}">{{ format_money(balance) }}</p>
+              {{ 'text-red-600' if _bal > 0 else 'text-slate-700' }}">{{ format_money(_bal) }}</p>
   </div>
 </div>
 
-{% if invoices %}
+{% if _invoices %}
   <div class="space-y-4">
-    {% for inv in invoices %}
+    {% for inv in _invoices %}
+      {% set inv_bal = inv.balance if inv.balance is defined and inv.balance is not none else 0 %}
       <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
         <div class="p-4 flex flex-wrap items-center gap-3">
-          <code class="text-xs bg-slate-100 px-2 py-0.5 rounded">{{ inv.invoice_no }}</code>
+          <code class="text-xs bg-slate-100 px-2 py-0.5 rounded">{{ inv.invoice_no or '—' }}</code>
           <span class="text-xs font-semibold
                        {{ 'bg-green-100 text-green-700' if inv.status == 'paid'
                           else 'bg-amber-100 text-amber-700' if inv.status == 'partial'
+                          else 'bg-slate-100 text-slate-600' if inv.status == 'waived'
                           else 'bg-red-100 text-red-700' }} px-2 py-0.5 rounded">
-            {{ inv.status|capitalize }}
+            {{ (inv.status or 'unpaid')|capitalize }}
           </span>
-          <span class="text-xs text-slate-500">{{ inv.term|capitalize }} Term · {{ inv.academic_year }}</span>
+          <span class="text-xs text-slate-500">
+            {{ (inv.term or '—')|capitalize }} Term · {{ inv.academic_year or '' }}
+          </span>
           <div class="ml-auto text-right">
-            <p class="text-sm font-bold">{{ format_money(inv.amount_due) }}</p>
-            <p class="text-xs text-slate-500">Balance: {{ format_money(inv.balance) }}</p>
+            <p class="text-sm font-bold">{{ format_money(inv.amount_due or 0) }}</p>
+            <p class="text-xs text-slate-500">Balance: {{ format_money(inv_bal) }}</p>
           </div>
         </div>
       </div>
@@ -44,7 +53,12 @@
   </div>
 {% else %}
   <div class="bg-white rounded-2xl border border-slate-100 p-16 text-center">
-    <p class="text-slate-500">No invoices yet.</p>
+    <div class="w-14 h-14 mx-auto rounded-2xl bg-emerald-50 grid place-items-center text-emerald-600 text-2xl"
+         aria-hidden="true">💳</div>
+    <p class="mt-3 font-semibold text-slate-700">No invoices yet</p>
+    <p class="mt-1 text-sm text-slate-500">
+      Your school hasn't issued any fee invoices for you this term.
+    </p>
   </div>
 {% endif %}
 

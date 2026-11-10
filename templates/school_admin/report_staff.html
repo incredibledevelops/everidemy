@@ -15,6 +15,19 @@
 
 {% block content %}
 
+{# Safe defaults #}
+{% set _sum       = summary if summary is defined and summary else {} %}
+{% set _total     = _sum.get('total', 0)        if _sum.get is defined else (_sum.total        if _sum.total        is defined else 0) %}
+{% set _active    = _sum.get('active', 0)       if _sum.get is defined else (_sum.active       if _sum.active       is defined else 0) %}
+{% set _on_leave  = _sum.get('on_leave', 0)     if _sum.get is defined else (_sum.on_leave     if _sum.on_leave     is defined else 0) %}
+{% set _resigned  = _sum.get('resigned', 0)     if _sum.get is defined else (_sum.resigned     if _sum.resigned     is defined else 0) %}
+{% set _salary    = _sum.get('total_salary', 0) if _sum.get is defined else (_sum.total_salary if _sum.total_salary is defined else 0) %}
+{% set _by_role   = _sum.get('by_role', [])     if _sum.get is defined else (_sum.by_role      if _sum.by_role      is defined else []) %}
+{% set _active_pct = ((_active / _total * 100)|round|int) if _total else 0 %}
+{% set _avg_salary = (_salary / _active) if _active else 0 %}
+{% set _pa_salary  = (_salary * 12) %}
+{% set _total_for_bars = _total if _total else 1 %}
+
 <a href="{{ url_for('school_admin.reports_page') }}"
    class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
   ← Back to reports
@@ -24,23 +37,21 @@
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Total</p>
-    <p class="mt-2 text-3xl font-extrabold">{{ summary.total }}</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ _total }}</p>
     <p class="mt-1 text-xs text-slate-500">All-time staff</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Active</p>
-    <p class="mt-2 text-3xl font-extrabold text-green-600">{{ summary.active }}</p>
-    <p class="mt-1 text-xs text-slate-500">
-      {{ (summary.active / summary.total * 100)|round|int if summary.total else 0 }}% of total
-    </p>
+    <p class="mt-2 text-3xl font-extrabold text-green-600">{{ _active }}</p>
+    <p class="mt-1 text-xs text-slate-500">{{ _active_pct }}% of total</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">On leave</p>
-    <p class="mt-2 text-3xl font-extrabold text-amber-600">{{ summary.on_leave }}</p>
+    <p class="mt-2 text-3xl font-extrabold text-amber-600">{{ _on_leave }}</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Resigned</p>
-    <p class="mt-2 text-3xl font-extrabold text-slate-500">{{ summary.resigned }}</p>
+    <p class="mt-2 text-3xl font-extrabold text-slate-500">{{ _resigned }}</p>
   </div>
 </div>
 
@@ -49,25 +60,29 @@
 
   <div class="bg-white rounded-2xl border border-slate-100 p-6">
     <h2 class="font-bold">Role distribution</h2>
-    {% if summary.by_role %}
+    {% if _by_role %}
       <div class="mt-4 space-y-3">
         {% set role_styles = {
           'teacher':      'bg-brand-500',
           'school_admin': 'bg-purple-500',
           'accountant':   'bg-emerald-500',
         } %}
-        {% set total_staff = summary.total if summary.total else 1 %}
-        {% for r in summary.by_role %}
+        {% for r in _by_role %}
+          {% set r_role  = r.role  if r.role  is defined else (r.get('role')  if r.get is defined else '') %}
+          {% set r_count = r.count if r.count is defined else (r.get('count') if r.get is defined else 0) %}
+          {% set r_count = r_count if r_count is not none else 0 %}
+          {% set pct = ((r_count / _total_for_bars * 100)|round|int) %}
           <div>
             <div class="flex items-center justify-between text-sm mb-1.5">
               <span class="font-semibold capitalize">
-                {{ (r.role or 'unknown')|replace('_',' ') }}
+                {{ ((r_role or 'unknown')|replace('_',' '))|title }}
               </span>
-              <span class="text-slate-500">{{ r.count }}</span>
+              <span class="text-slate-500">{{ r_count }}</span>
             </div>
             <div class="h-2 rounded-full bg-slate-100 overflow-hidden">
-              <div class="h-full rounded-full {{ role_styles.get(r.role, 'bg-slate-400') }}"
-                   style="width: {{ (r.count / total_staff * 100)|round|int }}%"></div>
+              <div class="h-full rounded-full {{ role_styles.get(r_role, 'bg-slate-400') }}"
+                   style="width: {{ pct }}%"
+                   aria-label="{{ ((r_role or 'unknown')|replace('_',' '))|title }}: {{ pct }}% of staff"></div>
             </div>
           </div>
         {% endfor %}
@@ -81,19 +96,19 @@
     <h2 class="font-bold">Salary obligation</h2>
     <p class="text-xs text-slate-500 mt-0.5">Monthly payroll for active staff</p>
     <p class="mt-4 text-3xl font-extrabold text-brand-600">
-      {{ format_money(summary.total_salary) }}
+      {{ format_money(_salary) }}
     </p>
     <p class="mt-2 text-sm text-slate-500">per month</p>
 
-    {% if summary.active %}
+    {% if _active %}
       <div class="mt-6 pt-6 border-t border-slate-100 grid grid-cols-2 gap-4 text-sm">
         <div>
           <p class="text-xs uppercase font-semibold text-slate-500">Average salary</p>
-          <p class="mt-1 font-bold">{{ format_money(summary.total_salary // summary.active) }}</p>
+          <p class="mt-1 font-bold">{{ format_money(_avg_salary) }}</p>
         </div>
         <div>
           <p class="text-xs uppercase font-semibold text-slate-500">Per annum</p>
-          <p class="mt-1 font-bold">{{ format_money(summary.total_salary * 12) }}</p>
+          <p class="mt-1 font-bold">{{ format_money(_pa_salary) }}</p>
         </div>
       </div>
     {% endif %}

@@ -4,14 +4,18 @@
 
 {% block content %}
 
+{% set _slots = slots if slots is defined and slots else [] %}
+
 <!-- Class selector + add slot -->
 <div class="bg-white rounded-2xl border border-slate-100 p-5 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
   <form method="GET" class="flex items-center gap-3">
-    <label class="text-sm font-semibold text-slate-700">Class:</label>
-    <select name="class_id" onchange="this.form.submit()"
+    <label for="class-select" class="text-sm font-semibold text-slate-700">Class:</label>
+    <select id="class-select"
+            name="class_id"
+            onchange="this.form.submit()"
             class="px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-brand-500 outline-none bg-white">
       {% if not class_list %}
-        <option>No classes yet</option>
+        <option value="">No classes yet</option>
       {% else %}
         {% for c in class_list %}
           <option value="{{ c._id }}" {{ 'selected' if selected_class_id == c._id|string }}>{{ c.name }}</option>
@@ -21,7 +25,7 @@
   </form>
 
   {% if selected_class %}
-    <button onclick="openSlotModal()"
+    <button type="button" onclick="openSlotModal()"
             class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white
                    text-sm font-semibold px-4 py-2 rounded-lg">
       + Add slot
@@ -32,7 +36,8 @@
 
 {% if not selected_class %}
   <div class="bg-white rounded-2xl border border-slate-100 p-16 text-center">
-    <div class="w-16 h-16 mx-auto rounded-2xl bg-brand-50 grid place-items-center text-brand-600 text-2xl">📅</div>
+    <div class="w-16 h-16 mx-auto rounded-2xl bg-brand-50 grid place-items-center text-brand-600 text-2xl"
+         aria-hidden="true">📅</div>
     <p class="mt-4 font-semibold text-slate-700">No classes yet</p>
     <p class="mt-1 text-sm text-slate-500">Create a class first, then add its timetable.</p>
     <a href="{{ url_for('school_admin.class_new') }}"
@@ -48,30 +53,36 @@
   <div class="p-5 border-b border-slate-100">
     <h2 class="font-bold">{{ selected_class.name }} — Weekly timetable</h2>
     <p class="text-sm text-slate-500 mt-0.5">
-      {{ slots|length }} slot{{ 's' if slots|length != 1 }} scheduled
+      {{ _slots|length }} slot{{ 's' if _slots|length != 1 }} scheduled
     </p>
   </div>
 
   <div class="grid grid-cols-1 md:grid-cols-5 divide-y md:divide-y-0 md:divide-x divide-slate-100">
     {% for day in weekdays %}
+      {% set day_slots = grid.get(day, []) if grid.get is defined else (grid[day] if day in grid else []) %}
+      {% set day_slots = day_slots or [] %}
       <div class="p-4">
         <div class="flex items-center justify-between mb-3">
-          <p class="text-xs uppercase tracking-wider font-bold text-slate-500">{{ weekday_labels[day] }}</p>
-          <span class="text-xs text-slate-400">{{ grid[day]|length }}</span>
+          <p class="text-xs uppercase tracking-wider font-bold text-slate-500">
+            {{ weekday_labels.get(day, day|title) if weekday_labels.get is defined else (weekday_labels[day] if day in weekday_labels else day|title) }}
+          </p>
+          <span class="text-xs text-slate-400">{{ day_slots|length }}</span>
         </div>
 
-        {% if grid[day] %}
+        {% if day_slots %}
           <div class="space-y-2">
-            {% for s in grid[day] %}
+            {% for s in day_slots %}
               <div class="group relative rounded-xl border border-slate-200 p-3 hover:border-brand-400 transition">
                 <div class="flex items-start justify-between gap-2">
                   <div class="min-w-0">
-                    <p class="text-xs font-mono font-semibold text-brand-600">{{ s.start }}–{{ s.end }}</p>
+                    <p class="text-xs font-mono font-semibold text-brand-600">
+                      {{ s.start or '?' }}–{{ s.end or '?' }}
+                    </p>
                     <p class="mt-1 text-sm font-semibold truncate">
-                      {{ s._subject.name if s._subject else '—' }}
+                      {{ (s._subject.name if s._subject else none) or '—' }}
                     </p>
                     {% if s._teacher %}
-                      <p class="text-xs text-slate-500 truncate">{{ s._teacher.name }}</p>
+                      <p class="text-xs text-slate-500 truncate">{{ s._teacher.name or '' }}</p>
                     {% endif %}
                     {% if s.room %}
                       <p class="text-xs text-slate-400 truncate mt-0.5">📍 {{ s.room }}</p>
@@ -79,10 +90,13 @@
                   </div>
                   <form method="POST"
                         action="{{ url_for('school_admin.timetable_delete', slot_id=s._id) }}"
-                        onsubmit="return confirm('Remove this slot?');">
-                    <button class="opacity-0 group-hover:opacity-100 transition
-                                   text-red-600 hover:text-red-700 p-1 rounded">
-                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        onsubmit="return confirm('Remove this slot?');"
+                        class="inline">
+                    <button type="submit"
+                            class="opacity-0 group-hover:opacity-100 focus:opacity-100 transition
+                                   text-red-600 hover:text-red-700 p-1 rounded"
+                            aria-label="Remove slot">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                               d="M6 18L18 6M6 6l12 12"/>
                       </svg>
@@ -93,7 +107,7 @@
             {% endfor %}
           </div>
         {% else %}
-          <button onclick="openSlotModal('{{ day }}')"
+          <button type="button" onclick="openSlotModal('{{ day }}')"
                   class="w-full py-6 rounded-xl border-2 border-dashed border-slate-200
                          hover:border-brand-400 hover:bg-brand-50/40 text-slate-400
                          hover:text-brand-600 text-xs font-semibold transition">
@@ -105,14 +119,15 @@
   </div>
 </div>
 
-{% endif %}
-
 
 <!-- =========================================================
-     SLOT MODAL
+     SLOT MODAL — only rendered when a class is selected
      ========================================================= -->
-<div id="slot-modal" class="hidden fixed inset-0 z-50">
-  <div class="absolute inset-0 bg-ink-900/60 backdrop-blur-sm" onclick="closeSlotModal()"></div>
+<div id="slot-modal" class="hidden fixed inset-0 z-50"
+     role="dialog"
+     aria-modal="true"
+     aria-labelledby="slot-modal-title">
+  <div class="absolute inset-0 bg-ink-900/60 backdrop-blur-sm" onclick="closeSlotModal()" aria-hidden="true"></div>
 
   <div class="relative min-h-full flex items-center justify-center p-4">
     <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 sm:p-8"
@@ -120,44 +135,48 @@
 
       <div class="flex items-start justify-between">
         <div>
-          <h3 class="font-bold text-lg">Add timetable slot</h3>
-          <p class="text-sm text-slate-500 mt-0.5">{{ selected_class.name }}</p>
+          <h3 id="slot-modal-title" class="font-bold text-lg">Add timetable slot</h3>
+          <p class="text-sm text-slate-500 mt-0.5">{{ selected_class.name or '' }}</p>
         </div>
-        <button onclick="closeSlotModal()" class="p-2 rounded-lg hover:bg-slate-100 text-slate-500">✕</button>
+        <button type="button" onclick="closeSlotModal()"
+                class="p-2 rounded-lg hover:bg-slate-100 text-slate-500"
+                aria-label="Close">
+          ✕
+        </button>
       </div>
 
       <form method="POST" action="{{ url_for('school_admin.timetable_new') }}" class="mt-6 space-y-4">
         <input type="hidden" name="class_id" value="{{ selected_class_id }}">
 
         <div>
-          <label class="text-sm font-semibold text-slate-700">Day</label>
-          <select name="day" required
+          <label for="slot-day" class="text-sm font-semibold text-slate-700">Day</label>
+          <select id="slot-day" name="day" required
                   class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
                          focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none bg-white">
             {% for d in weekdays %}
-              <option value="{{ d }}" id="day-{{ d }}">{{ weekday_labels[d] }}</option>
+              <option value="{{ d }}">{{ weekday_labels.get(d, d|title) if weekday_labels.get is defined else (weekday_labels[d] if d in weekday_labels else d|title) }}</option>
             {% endfor %}
           </select>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label class="text-sm font-semibold text-slate-700">Start</label>
-            <input type="time" name="start" required value="08:00"
+            <label for="slot-start" class="text-sm font-semibold text-slate-700">Start</label>
+            <input id="slot-start" type="time" name="start" required value="08:00"
                    class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
                           focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none">
           </div>
           <div>
-            <label class="text-sm font-semibold text-slate-700">End</label>
-            <input type="time" name="end" required value="08:45"
+            <label for="slot-end" class="text-sm font-semibold text-slate-700">End</label>
+            <input id="slot-end" type="time" name="end" required value="08:45"
                    class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
                           focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none">
           </div>
         </div>
 
         <div>
-          <label class="text-sm font-semibold text-slate-700">Subject</label>
-          <select name="subject_id"
+          <label for="slot-subject" class="text-sm font-semibold text-slate-700">Subject</label>
+          <select id="slot-subject" name="subject_id"
                   class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
                          focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none bg-white">
             <option value="">— Optional —</option>
@@ -168,8 +187,8 @@
         </div>
 
         <div>
-          <label class="text-sm font-semibold text-slate-700">Teacher</label>
-          <select name="teacher_id"
+          <label for="slot-teacher" class="text-sm font-semibold text-slate-700">Teacher</label>
+          <select id="slot-teacher" name="teacher_id"
                   class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
                          focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none bg-white">
             <option value="">— Optional —</option>
@@ -180,8 +199,8 @@
         </div>
 
         <div>
-          <label class="text-sm font-semibold text-slate-700">Room</label>
-          <input type="text" name="room"
+          <label for="slot-room" class="text-sm font-semibold text-slate-700">Room</label>
+          <input id="slot-room" type="text" name="room"
                  class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
                         focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
                  placeholder="Room 12">
@@ -202,6 +221,42 @@
   </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/timetable.js') }}"></script>
+{% endif %}
 
+{% endblock %}
+
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/timetable.js') }}"></script>
+<script>
+  // Fallback definitions — only installed if timetable.js didn't already
+  // define these helpers. This guarantees the modal always works even if
+  // the external file is missing or stale.
+  (function () {
+    if (typeof window.openSlotModal !== 'function') {
+      window.openSlotModal = function (day) {
+        var modal = document.getElementById('slot-modal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        if (day) {
+          var select = modal.querySelector('select[name="day"]');
+          if (select) select.value = day;
+        }
+        var first = modal.querySelector('select[name="day"], input[name="start"]');
+        if (first) setTimeout(function () { first.focus(); }, 50);
+      };
+    }
+    if (typeof window.closeSlotModal !== 'function') {
+      window.closeSlotModal = function () {
+        var modal = document.getElementById('slot-modal');
+        if (modal) modal.classList.add('hidden');
+        document.body.style.overflow = '';
+      };
+    }
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') window.closeSlotModal();
+    });
+  })();
+</script>
 {% endblock %}

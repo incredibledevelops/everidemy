@@ -4,60 +4,71 @@
 
 {% block content %}
 
+{% set _avg     = average    if average    is defined and average    is not none else 0 %}
+{% set _rank    = rank       if rank       is defined else none %}
+{% set _cs      = class_size if class_size is defined and class_size is not none else 0 %}
+{% set _rows    = rows       if rows       is defined and rows       else [] %}
+{% set _term    = term       if term       is defined and term else '' %}
+{% set _year    = academic_year if academic_year is defined else '' %}
+
 <div class="grid sm:grid-cols-3 gap-4">
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Average</p>
-    <p class="mt-2 text-3xl font-extrabold text-brand-600">{{ average }}%</p>
+    <p class="mt-2 text-3xl font-extrabold text-brand-600">{{ _avg }}%</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Position</p>
-    <p class="mt-2 text-3xl font-extrabold">
-      {{ rank if rank else '—' }}
-    </p>
-    {% if class_size %}<p class="mt-1 text-xs text-slate-500">of {{ class_size }}</p>{% endif %}
+    <p class="mt-2 text-3xl font-extrabold">{{ _rank if _rank else '—' }}</p>
+    {% if _cs %}<p class="mt-1 text-xs text-slate-500">of {{ _cs }}</p>{% endif %}
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Subjects</p>
-    <p class="mt-2 text-3xl font-extrabold">{{ rows|length }}</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ _rows|length }}</p>
   </div>
 </div>
 
 <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
   <div class="p-5 border-b border-slate-100">
-    <h2 class="font-bold">{{ term|capitalize }} Term · {{ academic_year }}</h2>
+    <h2 class="font-bold">
+      {{ _term|capitalize if _term else '—' }} Term · {{ _year }}
+    </h2>
   </div>
 
-  {% if rows %}
-    <table class="w-full text-sm">
-      <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
-        <tr>
-          <th class="text-left px-5 py-3 font-semibold">Subject</th>
-          <th class="text-center px-3 py-3 font-semibold">CA</th>
-          <th class="text-center px-3 py-3 font-semibold">Exam</th>
-          <th class="text-center px-3 py-3 font-semibold">Total</th>
-          <th class="text-center px-3 py-3 font-semibold">Grade</th>
-          <th class="text-left px-5 py-3 font-semibold">Remark</th>
-        </tr>
-      </thead>
-      <tbody class="divide-y divide-slate-100">
-        {% for r in rows %}
+  {% if _rows %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm min-w-[640px]">
+        <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
           <tr>
-            <td class="px-5 py-3 font-semibold">{{ r.subject }}</td>
-            <td class="px-3 py-3 text-center">{{ r.ca }}</td>
-            <td class="px-3 py-3 text-center">{{ r.exam }}</td>
-            <td class="px-3 py-3 text-center font-bold">{{ r.total }}</td>
-            <td class="px-3 py-3 text-center">
-              <span class="text-xs font-bold px-2 py-1 rounded
-                    {{ 'bg-green-50 text-green-700' if r.grade in ['A1','B2','B3']
-                       else 'bg-blue-50 text-blue-700' if r.grade in ['C4','C5','C6']
-                       else 'bg-amber-50 text-amber-700' if r.grade in ['D7','E8']
-                       else 'bg-red-50 text-red-700' }}">{{ r.grade }}</span>
-            </td>
-            <td class="px-5 py-3 text-xs text-slate-500">{{ r.remark }}</td>
+            <th class="text-left px-5 py-3 font-semibold">Subject</th>
+            <th class="text-center px-3 py-3 font-semibold">CA</th>
+            <th class="text-center px-3 py-3 font-semibold">Exam</th>
+            <th class="text-center px-3 py-3 font-semibold">Total</th>
+            <th class="text-center px-3 py-3 font-semibold">Grade</th>
+            <th class="text-left px-5 py-3 font-semibold">Remark</th>
           </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for r in _rows %}
+            {% set g = r.grade if r.grade is defined else none %}
+            <tr>
+              <td class="px-5 py-3 font-semibold">{{ r.subject or '—' }}</td>
+              <td class="px-3 py-3 text-center">{{ r.ca if r.ca is not none else '—' }}</td>
+              <td class="px-3 py-3 text-center">{{ r.exam if r.exam is not none else '—' }}</td>
+              <td class="px-3 py-3 text-center font-bold">{{ r.total if r.total is not none else '—' }}</td>
+              <td class="px-3 py-3 text-center">
+                <span class="text-xs font-bold px-2 py-1 rounded
+                      {{ 'bg-green-50 text-green-700' if g and g in ['A1','B2','B3']
+                         else 'bg-blue-50 text-blue-700' if g and g in ['C4','C5','C6']
+                         else 'bg-amber-50 text-amber-700' if g and g in ['D7','E8']
+                         else 'bg-red-50 text-red-700' if g and g == 'F9'
+                         else 'bg-slate-100 text-slate-500' }}">{{ g or '—' }}</span>
+              </td>
+              <td class="px-5 py-3 text-xs text-slate-500">{{ r.remark or '—' }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   {% else %}
     <p class="p-10 text-center text-sm text-slate-500">No grades recorded for this term yet.</p>
   {% endif %}

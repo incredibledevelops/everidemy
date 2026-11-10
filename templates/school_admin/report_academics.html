@@ -15,6 +15,14 @@
 
 {% block content %}
 
+{# Safe defaults so the template never crashes on None #}
+{% set dist      = summary.distribution if summary and summary.distribution else {} %}
+{% set by_subj   = summary.by_subject  if summary and summary.by_subject  else [] %}
+{% set total_gr  = summary.total_grades if summary and summary.total_grades is not none else 0 %}
+{% set avg_gr    = summary.average     if summary and summary.average    is not none else 0 %}
+{% set distinctions = dist.get('A1', 0) + dist.get('B2', 0) + dist.get('B3', 0) %}
+{% set fails       = dist.get('F9', 0) %}
+
 <a href="{{ url_for('school_admin.reports_page') }}"
    class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
   ← Back to reports
@@ -24,8 +32,8 @@
 <div class="bg-white rounded-2xl border border-slate-100 p-5">
   <form method="GET" class="grid sm:grid-cols-3 gap-3 items-end">
     <div>
-      <label class="text-xs uppercase font-semibold text-slate-500">Term</label>
-      <select name="term" onchange="this.form.submit()"
+      <label for="term-select" class="text-xs uppercase font-semibold text-slate-500">Term</label>
+      <select id="term-select" name="term" onchange="this.form.submit()"
               class="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200
                      focus:border-brand-500 outline-none bg-white">
         {% for key, label in terms %}
@@ -34,11 +42,17 @@
       </select>
     </div>
     <div>
-      <label class="text-xs uppercase font-semibold text-slate-500">Academic year</label>
-      <input type="text" name="academic_year" value="{{ academic_year }}"
+      <label for="year-input" class="text-xs uppercase font-semibold text-slate-500">Academic year</label>
+      <input id="year-input" type="text" name="academic_year" value="{{ academic_year }}"
              onchange="this.form.submit()"
              class="mt-1.5 w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200
                     focus:border-brand-500 outline-none">
+    </div>
+    <div class="flex justify-end">
+      <button type="submit"
+              class="px-4 py-2.5 text-sm font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800">
+        Apply
+      </button>
     </div>
   </form>
 </div>
@@ -47,43 +61,58 @@
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Grades entered</p>
-    <p class="mt-2 text-3xl font-extrabold">{{ summary.total_grades }}</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ total_gr }}</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Overall average</p>
-    <p class="mt-2 text-3xl font-extrabold text-brand-600">{{ summary.average }}%</p>
+    <p class="mt-2 text-3xl font-extrabold text-brand-600">{{ avg_gr }}%</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Distinctions</p>
-    <p class="mt-2 text-3xl font-extrabold text-green-600">
-      {{ summary.distribution.get('A1', 0) + summary.distribution.get('B2', 0) + summary.distribution.get('B3', 0) }}
-    </p>
+    <p class="mt-2 text-3xl font-extrabold text-green-600">{{ distinctions }}</p>
     <p class="mt-1 text-xs text-slate-500">A1–B3</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Fails</p>
-    <p class="mt-2 text-3xl font-extrabold text-red-600">{{ summary.distribution.get('F9', 0) }}</p>
+    <p class="mt-2 text-3xl font-extrabold text-red-600">{{ fails }}</p>
     <p class="mt-1 text-xs text-slate-500">Below 45%</p>
   </div>
 </div>
 
 <!-- Grade distribution -->
 <div class="bg-white rounded-2xl border border-slate-100 p-6">
-  <h2 class="font-bold">Grade distribution</h2>
-  {% set max_count = summary.distribution.values() | max if summary.distribution else 1 %}
+  <div class="flex items-start justify-between gap-3 flex-wrap">
+    <div>
+      <h2 class="font-bold">Grade distribution</h2>
+      <p class="text-xs text-slate-500 mt-0.5">How grades are spread across the term</p>
+    </div>
+    {% if total_gr == 0 %}
+      <span class="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+        No data yet
+      </span>
+    {% endif %}
+  </div>
+
+  {% set max_count = (dist.values() | max) if dist else 0 %}
+  {% set max_count = max_count if max_count > 0 else 1 %}
   {% set scale = [
     ('A1','bg-green-500'), ('B2','bg-green-500'), ('B3','bg-green-500'),
     ('C4','bg-blue-500'),  ('C5','bg-blue-500'),  ('C6','bg-blue-500'),
     ('D7','bg-amber-500'), ('E8','bg-amber-500'),
     ('F9','bg-red-500'),
   ] %}
-  <div class="mt-4 grid grid-cols-3 sm:grid-cols-9 gap-2">
+
+  <div class="mt-6 grid grid-cols-3 sm:grid-cols-9 gap-2" role="list" aria-label="Grade distribution bars">
     {% for key, color in scale %}
-      {% set count = summary.distribution.get(key, 0) %}
-      <div class="text-center">
-        <div class="h-32 flex items-end justify-center">
+      {% set count = dist.get(key, 0) %}
+      {% set pct   = (count / max_count * 100) | round | int if max_count and count else 0 %}
+      <div class="text-center" role="listitem">
+        <div class="h-32 flex items-end justify-center bg-slate-50 rounded-t">
           <div class="w-full rounded-t {{ color }} transition-all"
-               style="height: {{ (count / max_count * 100) if max_count else 3 }}%"></div>
+               style="height: {{ pct if pct > 0 else 3 }}%; min-height: 3px;"
+               title="{{ key }} — {{ count }} grade{{ 's' if count != 1 }}"
+               aria-label="{{ key }}: {{ count }} grades">
+          </div>
         </div>
         <p class="mt-2 text-xs font-bold">{{ key }}</p>
         <p class="text-xs text-slate-500">{{ count }}</p>
@@ -104,6 +133,7 @@
     {% if rankings %}
       <div class="divide-y divide-slate-100">
         {% for r in rankings %}
+          {% set r_avg = r.average if r.average is defined and r.average is not none else 0 %}
           <div class="p-4 flex items-center gap-3">
             <div class="w-8 h-8 rounded-lg
                         {{ 'bg-amber-100 text-amber-700' if loop.index == 1
@@ -117,14 +147,16 @@
                 {{ r.grades_entered }} grades · {{ r.student_count }} students
               </p>
             </div>
-            <span class="font-bold text-lg shrink-0">{{ r.average }}%</span>
+            <span class="font-bold text-lg shrink-0">{{ r_avg }}%</span>
           </div>
         {% endfor %}
       </div>
     {% else %}
-      <p class="p-8 text-center text-sm text-slate-500 italic">
-        No grade data for this term.
-      </p>
+      <div class="p-8 text-center">
+        <div class="w-12 h-12 mx-auto rounded-xl bg-slate-100 grid place-items-center
+                    text-slate-400 text-xl" aria-hidden="true">📊</div>
+        <p class="mt-3 text-sm text-slate-500">No grade data for this term.</p>
+      </div>
     {% endif %}
   </div>
 
@@ -137,8 +169,9 @@
     {% if top_students %}
       <div class="divide-y divide-slate-100">
         {% for s in top_students %}
+          {% set s_avg = s.average if s.average is defined and s.average is not none else 0 %}
           <a href="{{ url_for('school_admin.student_detail', student_id=s.student_id) }}"
-             class="p-4 flex items-center gap-3 hover:bg-slate-50">
+             class="p-4 flex items-center gap-3 hover:bg-slate-50 transition">
             <div class="w-8 h-8 rounded-lg
                         {{ 'bg-amber-100 text-amber-700' if loop.index <= 3 else 'bg-slate-100 text-slate-700' }}
                         grid place-items-center font-bold text-xs shrink-0">
@@ -150,23 +183,26 @@
                 {{ s.class_name }} · {{ s.subjects }} subjects
               </p>
             </div>
-            <span class="font-bold text-lg text-brand-600 shrink-0">{{ s.average }}%</span>
+            <span class="font-bold text-lg text-brand-600 shrink-0">{{ s_avg }}%</span>
           </a>
         {% endfor %}
       </div>
     {% else %}
-      <p class="p-8 text-center text-sm text-slate-500 italic">
-        No grade data for this term.
-      </p>
+      <div class="p-8 text-center">
+        <div class="w-12 h-12 mx-auto rounded-xl bg-slate-100 grid place-items-center
+                    text-slate-400 text-xl" aria-hidden="true">🏆</div>
+        <p class="mt-3 text-sm text-slate-500">No grade data for this term.</p>
+      </div>
     {% endif %}
   </div>
 </div>
 
 <!-- Subject averages -->
-{% if summary.by_subject %}
+{% if by_subj %}
 <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
   <div class="p-5 border-b border-slate-100">
     <h2 class="font-bold">Subject averages</h2>
+    <p class="text-xs text-slate-500 mt-0.5">How each subject performed across all classes</p>
   </div>
   <div class="overflow-x-auto">
     <table class="w-full text-sm min-w-[500px]">
@@ -178,7 +214,8 @@
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100">
-        {% for s in summary.by_subject %}
+        {% for s in by_subj %}
+          {% set sa = s.average if s.average is defined and s.average is not none else 0 %}
           <tr class="hover:bg-slate-50">
             <td class="px-5 py-3 font-semibold">{{ s.subject_name }}</td>
             <td class="px-3 py-3 text-center text-slate-500">{{ s.count }}</td>
@@ -186,12 +223,12 @@
               <div class="flex items-center justify-end gap-3">
                 <div class="w-24 h-1.5 rounded-full bg-slate-100 overflow-hidden">
                   <div class="h-full rounded-full
-                              {{ 'bg-green-500' if s.average >= 75
-                                 else 'bg-amber-500' if s.average >= 50
+                              {{ 'bg-green-500' if sa >= 75
+                                 else 'bg-amber-500' if sa >= 50
                                  else 'bg-red-400' }}"
-                       style="width: {{ s.average }}%"></div>
+                       style="width: {{ sa }}%"></div>
                 </div>
-                <span class="font-bold w-12 text-right">{{ s.average }}%</span>
+                <span class="font-bold w-12 text-right">{{ sa }}%</span>
               </div>
             </td>
           </tr>

@@ -1,18 +1,22 @@
 {% extends "super_admin/base.html" %}
-{% block page_title %}{{ school.name }}{% endblock %}
-{% block breadcrumb %}Schools / {{ school.name }}{% endblock %}
+{% block page_title %}{{ school.name or 'School' }}{% endblock %}
+{% block breadcrumb %}Schools / {{ school.name or 'School' }}{% endblock %}
 
 {% block content %}
+
+{% set _addr = school.address if school.address is defined and school.address else {} %}
+{% set _susp = school.suspended if school.suspended is defined else false %}
+{% set _sub_status = (school.subscription_status if school.subscription_status is defined else '') or 'unknown' %}
+{% set _plan_info = plans.get(school.plan) if plans is defined and plans and school.plan is defined and school.plan else none %}
 
 <a href="{{ url_for('super_admin.schools_list') }}"
    class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
   <span aria-hidden="true">←</span> Back to schools
 </a>
 
-<!-- ========== Suspended banner ========== -->
-{% if school.suspended %}
+{% if _susp %}
 <div class="rounded-2xl bg-red-50 border border-red-200 p-4 flex items-start gap-3">
-  <div class="w-9 h-9 rounded-lg bg-red-100 grid place-items-center text-red-700 shrink-0">⚠️</div>
+  <div class="w-9 h-9 rounded-lg bg-red-100 grid place-items-center text-red-700 shrink-0" aria-hidden="true">⚠️</div>
   <div class="flex-1">
     <p class="font-semibold text-red-800">This school is suspended</p>
     <p class="text-sm text-red-700 mt-0.5">
@@ -24,32 +28,25 @@
 
 <div class="grid lg:grid-cols-3 gap-6">
 
-  <!-- =========================================================
-       LEFT: Profile
-       ========================================================= -->
   <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-100">
     <div class="flex items-start gap-4">
-      <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 grid place-items-center text-white font-extrabold text-xl shrink-0">
-        {{ school.name[:2]|upper }}
+      <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 grid place-items-center text-white font-extrabold text-xl shrink-0"
+           aria-hidden="true">
+        {{ ((school.name or '?')[:2])|upper }}
       </div>
       <div class="flex-1 min-w-0">
-        <h2 class="text-2xl font-extrabold break-words">{{ school.name }}</h2>
-
+        <h2 class="text-2xl font-extrabold break-words">{{ school.name or 'Untitled' }}</h2>
         {% if school.phone %}
           <p class="text-sm text-slate-500 mt-0.5">{{ school.phone }}</p>
         {% endif %}
 
-        <!-- Status badges -->
         <div class="mt-3 flex flex-wrap gap-2 text-xs">
-          {% set plan_info = plans.get(school.plan) %}
-          {% if plan_info %}
+          {% if _plan_info %}
             <span class="px-2 py-1 rounded bg-brand-50 text-brand-700 font-semibold">
-              {{ format_money(plan_info.price) }} / month
+              {{ format_money(_plan_info.price or 0) }} / month
             </span>
           {% else %}
-            <span class="px-2 py-1 rounded bg-brand-50 text-brand-700 font-semibold">
-              Trial plan
-            </span>
+            <span class="px-2 py-1 rounded bg-brand-50 text-brand-700 font-semibold">Trial plan</span>
           {% endif %}
 
           {% set status_styles = {
@@ -58,77 +55,68 @@
             'past_due': 'bg-red-50 text-red-700',
             'canceled': 'bg-slate-100 text-slate-600',
           } %}
-          <span class="px-2 py-1 rounded font-semibold {{ status_styles.get(school.subscription_status, 'bg-slate-100 text-slate-700') }}">
-            {{ school.subscription_status|replace('_',' ')|capitalize }}
+          <span class="px-2 py-1 rounded font-semibold {{ status_styles.get(_sub_status, 'bg-slate-100 text-slate-700') }}">
+            {{ _sub_status|replace('_',' ')|capitalize }}
           </span>
 
-          {% if school.suspended %}
+          {% if _susp %}
             <span class="px-2 py-1 rounded bg-red-50 text-red-700 font-semibold">Suspended</span>
           {% endif %}
         </div>
       </div>
     </div>
 
-    <!-- Details grid -->
     <dl class="mt-6 grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-
       <div>
         <dt class="text-slate-500">Students</dt>
-        <dd class="font-bold">{{ student_count }}</dd>
+        <dd class="font-bold">{{ student_count if student_count is defined else 0 }}</dd>
       </div>
-
       <div>
         <dt class="text-slate-500">Staff</dt>
-        <dd class="font-bold">{{ staff_count }}</dd>
+        <dd class="font-bold">{{ staff_count if staff_count is defined else 0 }}</dd>
       </div>
-
       <div>
         <dt class="text-slate-500">Created</dt>
         <dd class="font-bold">{{ school.created_at.strftime('%b %d, %Y') if school.created_at else '—' }}</dd>
       </div>
 
       {% if school.trial_ends_at %}
-      <div>
-        <dt class="text-slate-500">Trial ends</dt>
-        <dd class="font-bold">{{ school.trial_ends_at.strftime('%b %d, %Y') }}</dd>
-      </div>
+        <div>
+          <dt class="text-slate-500">Trial ends</dt>
+          <dd class="font-bold">{{ school.trial_ends_at.strftime('%b %d, %Y') }}</dd>
+        </div>
       {% endif %}
 
       {% if subscription and subscription.next_billing_date %}
-      <div>
-        <dt class="text-slate-500">Next billing</dt>
-        <dd class="font-bold">{{ subscription.next_billing_date.strftime('%b %d, %Y') }}</dd>
-      </div>
+        <div>
+          <dt class="text-slate-500">Next billing</dt>
+          <dd class="font-bold">{{ subscription.next_billing_date.strftime('%b %d, %Y') }}</dd>
+        </div>
       {% endif %}
 
       {% if owner %}
-      <div class="col-span-2 sm:col-span-3">
-        <dt class="text-slate-500">School admin</dt>
-        <dd class="font-bold truncate">
-          {{ owner.name }}
-          <span class="text-slate-400 font-normal">&lt;{{ owner.email }}&gt;</span>
-        </dd>
-      </div>
+        <div class="col-span-2 sm:col-span-3">
+          <dt class="text-slate-500">School admin</dt>
+          <dd class="font-bold truncate">
+            {{ owner.name or '—' }}
+            <span class="text-slate-400 font-normal">&lt;{{ owner.email or '' }}&gt;</span>
+          </dd>
+        </div>
       {% endif %}
 
-      {% if school.address and (school.address.street or school.address.city) %}
-      <div class="col-span-2 sm:col-span-3">
-        <dt class="text-slate-500">Address</dt>
-        <dd class="font-bold">
-          {{ school.address.get('street','') }}{% if school.address.get('city') %}, {{ school.address.get('city') }}{% endif %}
-        </dd>
-      </div>
+      {% if _addr and (_addr.street or _addr.city) %}
+        <div class="col-span-2 sm:col-span-3">
+          <dt class="text-slate-500">Address</dt>
+          <dd class="font-bold">
+            {{ _addr.street or '' }}{% if _addr.city %}, {{ _addr.city }}{% endif %}
+          </dd>
+        </div>
       {% endif %}
-
     </dl>
   </div>
 
-  <!-- =========================================================
-       RIGHT: Actions + Email
-       ========================================================= -->
   <div class="space-y-6">
 
-    <!-- Actions -->
     <div class="bg-white rounded-2xl p-6 border border-slate-100">
       <h3 class="font-bold">Actions</h3>
 
@@ -141,15 +129,15 @@
             action="{{ url_for('super_admin.suspend_school', school_id=school._id) }}"
             class="mt-2">
         <button class="w-full py-2.5 rounded-lg font-semibold text-sm
-                       {{ 'bg-green-50 text-green-700 hover:bg-green-100' if school.suspended
+                       {{ 'bg-green-50 text-green-700 hover:bg-green-100' if _susp
                           else 'bg-amber-50 text-amber-700 hover:bg-amber-100' }}">
-          {{ 'Reactivate school' if school.suspended else 'Suspend school' }}
+          {{ 'Reactivate school' if _susp else 'Suspend school' }}
         </button>
       </form>
 
       <form method="POST"
             action="{{ url_for('super_admin.school_delete', school_id=school._id) }}"
-            onsubmit="return confirm('This will PERMANENTLY delete {{ school.name|e }} and all its data. Are you sure?');"
+            onsubmit="return confirm('This will PERMANENTLY delete {{ (school.name or '')|e }} and all its data. Are you sure?');"
             class="mt-2">
         <button class="w-full py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-sm">
           Delete school
@@ -157,13 +145,12 @@
       </form>
     </div>
 
-    <!-- Email the admin -->
     <div class="bg-white rounded-2xl p-6 border border-slate-100">
       <div class="flex items-center justify-between">
         <h3 class="font-bold">Email the admin</h3>
         {% if owner %}
-          <span class="text-[11px] text-slate-400 truncate max-w-[160px]" title="{{ owner.email }}">
-            to: {{ owner.email }}
+          <span class="text-[11px] text-slate-400 truncate max-w-[160px]" title="{{ owner.email or '' }}">
+            to: {{ owner.email or '' }}
           </span>
         {% endif %}
       </div>
@@ -173,9 +160,10 @@
               action="{{ url_for('super_admin.school_email', school_id=school._id) }}"
               class="mt-4 space-y-3">
           <input type="text" name="subject" placeholder="Subject"
-                 value=""
+                 aria-label="Subject"
                  class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none">
           <textarea name="body" rows="5" required
+                    aria-label="Message body"
                     placeholder="Type your message…"
                     class="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"></textarea>
           <button class="w-full py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-semibold text-sm">
@@ -189,7 +177,6 @@
       {% endif %}
     </div>
 
-    <!-- Quick info card -->
     <div class="bg-white rounded-2xl p-6 border border-slate-100">
       <h3 class="font-bold">Quick info</h3>
       <ul class="mt-4 space-y-3 text-sm">
@@ -199,11 +186,11 @@
         </li>
         <li class="flex items-center justify-between">
           <span class="text-slate-500">Plan</span>
-          <span class="font-semibold">{{ school.plan|capitalize if school.plan else '—' }}</span>
+          <span class="font-semibold">{{ (school.plan or '—')|capitalize }}</span>
         </li>
         <li class="flex items-center justify-between">
           <span class="text-slate-500">Currency</span>
-          <span class="font-semibold">{{ currency_code }}</span>
+          <span class="font-semibold">{{ currency_code or 'GHS' }}</span>
         </li>
       </ul>
     </div>

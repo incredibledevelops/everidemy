@@ -14,34 +14,27 @@
 
 <div class="grid lg:grid-cols-4 gap-6">
 
-  <!-- =========================================================
-       LEFT: quick compose + quick contacts
-       ========================================================= -->
+  <!-- LEFT: quick compose + quick contacts -->
   <aside class="lg:col-span-1 space-y-6">
 
-    <!-- Compose CTA -->
     <a href="{{ url_for('parent.message_new') }}"
        class="block bg-brand-600 hover:bg-brand-700 text-white rounded-2xl p-4
               text-center font-semibold transition shadow-sm shadow-brand-600/20">
       ✉️ Compose new
     </a>
 
-    <!-- Quick contacts: teachers and admins -->
     {% if recipients %}
       <div class="bg-white rounded-2xl border border-slate-100 p-4">
-        <p class="text-xs uppercase font-semibold text-slate-500 mb-3">
-          Message a teacher
-        </p>
+        <p class="text-xs uppercase font-semibold text-slate-500 mb-3">Message a teacher</p>
         <ul class="space-y-1 text-sm">
           {% for u in recipients[:8] %}
-            {% set role_label = u.role|replace('_',' ')|title %}
+            {% set role_label = (u.role or '')|replace('_',' ')|title %}
             <li>
               <a href="{{ url_for('parent.message_new', to=u._id) }}"
-                 class="flex items-center gap-2 px-2 py-1.5 rounded-lg
-                        hover:bg-slate-50 transition">
+                 class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 transition">
                 <div class="w-7 h-7 rounded-lg bg-brand-100 grid place-items-center
                             text-brand-700 text-xs font-bold shrink-0">
-                  {{ u.name[:1]|upper }}
+                  {{ (u.name or '?')[:1]|upper }}
                 </div>
                 <div class="flex-1 min-w-0">
                   <p class="text-sm font-medium truncate">{{ u.name }}</p>
@@ -59,21 +52,17 @@
       </div>
     {% endif %}
 
-    <!-- Children quick links (if any) -->
     {% if children is defined and children %}
       <div class="bg-white rounded-2xl border border-slate-100 p-4">
-        <p class="text-xs uppercase font-semibold text-slate-500 mb-3">
-          About a child
-        </p>
+        <p class="text-xs uppercase font-semibold text-slate-500 mb-3">About a child</p>
         <ul class="space-y-1">
           {% for c in children[:4] %}
             <li>
               <a href="{{ url_for('parent.child_detail', student_id=c._id) }}"
-                 class="flex items-center gap-2 px-2 py-1.5 rounded-lg
-                        hover:bg-slate-50 transition">
+                 class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 transition">
                 <div class="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600
                             grid place-items-center text-white text-[10px] font-bold shrink-0">
-                  {{ c.first_name[:1]|upper }}{{ c.last_name[:1]|upper if c.last_name }}
+                  {{ (c.first_name or '?')[:1]|upper }}{{ (c.last_name or '')[:1]|upper }}
                 </div>
                 <span class="text-sm truncate">{{ c.first_name }} {{ c.last_name }}</span>
               </a>
@@ -83,7 +72,6 @@
       </div>
     {% endif %}
 
-    <!-- Info tip -->
     <div class="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-xs text-emerald-900">
       <p class="font-semibold mb-1">💡 Tip</p>
       <p class="text-emerald-800 leading-relaxed">
@@ -94,12 +82,9 @@
 
   </aside>
 
-  <!-- =========================================================
-       RIGHT: thread list
-       ========================================================= -->
+  <!-- RIGHT: thread list -->
   <div class="lg:col-span-3 space-y-4">
 
-    <!-- Tabs -->
     <div class="bg-white rounded-2xl border border-slate-100 p-1 flex">
       <a href="{{ url_for('parent.messages_page', tab='inbox') }}"
          class="flex-1 text-center py-2 rounded-xl text-sm font-semibold transition
@@ -126,19 +111,18 @@
       </a>
     </div>
 
-    <!-- Thread list card -->
     <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
 
-      <!-- Search -->
       <div class="p-4 border-b border-slate-100">
         <form method="GET" class="relative">
           <input type="hidden" name="tab" value="{{ tab }}">
           <input type="text" name="q" value="{{ search }}"
                  placeholder="Search conversations…"
+                 aria-label="Search conversations"
                  class="w-full pl-10 pr-3 py-2.5 text-sm rounded-lg border border-slate-200
                         focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none">
           <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/>
             </svg>
@@ -149,17 +133,17 @@
       {% if threads %}
         <div class="divide-y divide-slate-100">
           {% for t in threads %}
+            {% set last = t.last_message if t.last_message is defined else none %}
             <a href="{{ url_for('parent.message_thread', thread_id=t.thread_id) }}"
                class="flex items-start gap-3 p-4 hover:bg-slate-50 transition
                       {{ 'bg-brand-50/40' if t.unread else '' }}">
 
-              <!-- Partner avatars -->
               <div class="flex -space-x-2 shrink-0">
                 {% for p in t.partners[:2] %}
                   <div class="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-brand-700
                               grid place-items-center text-white text-xs font-bold
                               border-2 border-white">
-                    {{ p.name[:1]|upper }}
+                    {{ (p.name or '?')[:1]|upper }}
                   </div>
                 {% endfor %}
                 {% if not t.partners %}
@@ -170,7 +154,6 @@
                 {% endif %}
               </div>
 
-              <!-- Content -->
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2">
                   <p class="font-semibold truncate
@@ -190,15 +173,17 @@
                 </div>
                 <p class="text-xs text-slate-500 truncate mt-0.5">{{ t.subject }}</p>
                 <p class="text-xs text-slate-400 truncate mt-0.5">
-                  {% set last = t.last_message %}
-                  {% if last._is_mine is defined and last._is_mine %}
-                    <span class="text-slate-500">You:</span>
+                  {% if last %}
+                    {% if last._is_mine is defined and last._is_mine %}
+                      <span class="text-slate-500">You:</span>
+                    {% endif %}
+                    {{ (last.body or '')[:80] }}{% if (last.body or '')|length > 80 %}…{% endif %}
+                  {% else %}
+                    <span class="italic">No messages yet</span>
                   {% endif %}
-                  {{ last.body[:80] }}{% if last.body|length > 80 %}…{% endif %}
                 </p>
               </div>
 
-              <!-- Time -->
               <div class="text-xs text-slate-400 whitespace-nowrap shrink-0">
                 {% if t.updated_at %}
                   {% set today = now.replace(hour=0, minute=0, second=0, microsecond=0) %}
@@ -214,7 +199,6 @@
         </div>
 
       {% else %}
-        <!-- Empty state -->
         <div class="p-16 text-center">
           <div class="w-16 h-16 mx-auto rounded-2xl bg-brand-50 grid place-items-center
                       text-brand-600 text-2xl">
@@ -224,7 +208,7 @@
             {% if tab == 'unread' %}
               No unread messages
             {% elif search %}
-              No matches for “{{ search }}”
+              No matches for "{{ search }}"
             {% else %}
               No conversations yet
             {% endif %}

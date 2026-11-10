@@ -1,5 +1,5 @@
 {% extends "super_admin/base.html" %}
-{% block page_title %}{{ 'Add a school' if mode == 'create' else 'Edit ' ~ school.name }}{% endblock %}
+{% block page_title %}{{ 'Add a school' if mode == 'create' else 'Edit ' ~ (school.name if school is defined and school and school.name else 'school') }}{% endblock %}
 {% block breadcrumb %}Schools / {{ 'Add' if mode == 'create' else 'Edit' }}{% endblock %}
 
 {% block content %}
@@ -11,15 +11,15 @@
 
 <div class="max-w-2xl bg-white rounded-2xl border border-slate-100 p-6 sm:p-8">
 
-  <!-- Header -->
   <div class="flex items-start gap-3">
     <div class="w-11 h-11 rounded-xl grid place-items-center shrink-0
-                {{ 'bg-brand-50 text-brand-600' if mode == 'create' else 'bg-slate-100 text-slate-600' }}">
+                {{ 'bg-brand-50 text-brand-600' if mode == 'create' else 'bg-slate-100 text-slate-600' }}"
+         aria-hidden="true">
       {% if mode == 'create' %}🏫{% else %}✏️{% endif %}
     </div>
     <div class="min-w-0">
       <h2 class="font-bold text-xl">
-        {{ 'Create a new school' if mode == 'create' else 'Edit ' ~ school.name }}
+        {{ 'Create a new school' if mode == 'create' else 'Edit ' ~ (school.name if school is defined and school and school.name else 'school') }}
       </h2>
       <p class="mt-1 text-sm text-slate-500">
         {% if mode == 'create' %}
@@ -31,13 +31,8 @@
     </div>
   </div>
 
-  <!-- Form -->
-  <form method="POST" class="mt-6 space-y-5" id="school-form"
-        novalidate>
+  <form method="POST" class="mt-6 space-y-5" id="school-form" novalidate>
 
-    <!-- ====================================================
-         School basics
-         ==================================================== -->
     <div>
       <label for="name" class="text-sm font-semibold text-slate-700">
         School name <span class="text-red-500">*</span>
@@ -77,15 +72,11 @@
       </div>
     </div>
 
-    <!-- ====================================================
-         School admin (create mode only)
-         ==================================================== -->
     {% if mode == 'create' %}
     <div class="border-t border-slate-100 pt-6">
       <div class="flex items-center gap-2">
-        <div class="w-8 h-8 rounded-lg bg-brand-50 grid place-items-center text-brand-600 text-sm">
-          👤
-        </div>
+        <div class="w-8 h-8 rounded-lg bg-brand-50 grid place-items-center text-brand-600 text-sm"
+             aria-hidden="true">👤</div>
         <div>
           <h3 class="font-bold text-sm">School admin</h3>
           <p class="text-xs text-slate-500">This person will manage the school's account.</p>
@@ -93,7 +84,6 @@
       </div>
 
       <div class="mt-5 space-y-4">
-
         <div>
           <label for="owner_name" class="text-sm font-semibold text-slate-700">
             Admin full name <span class="text-red-500">*</span>
@@ -146,7 +136,8 @@
               Generate
             </button>
           </div>
-          <p class="mt-1 text-xs text-slate-500" id="pwd-hint">
+          <p class="mt-1 text-xs text-slate-500" id="pwd-hint"
+             data-original="Leave as-is to use the default. The admin can change it after first login.">
             Leave as-is to use the default. The admin can change it after first login.
           </p>
         </div>
@@ -161,14 +152,10 @@
             </span>
           </span>
         </label>
-
       </div>
     </div>
     {% endif %}
 
-    <!-- ====================================================
-         Actions
-         ==================================================== -->
     <div class="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-100">
       <button type="submit"
               class="px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white
@@ -185,58 +172,58 @@
 </div>
 
 
-<!-- ====================================================
-     Small JS helpers
-     ==================================================== -->
 <script>
-function copyPassword() {
-  const input = document.getElementById('password');
-  input.select();
-  input.setSelectionRange(0, 99999); // mobile
-  try {
-    navigator.clipboard.writeText(input.value);
-    flashHint('Copied to clipboard ✓');
-  } catch {
-    document.execCommand('copy');
-    flashHint('Copied ✓');
-  }
-}
-
-function generatePassword() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#%&';
-  let out = '';
-  for (let i = 0; i < 12; i++) out += chars.charAt(Math.floor(Math.random() * chars.length));
-  document.getElementById('password').value = out;
-  flashHint('Generated a new password');
-}
-
-function flashHint(text) {
-  const hint = document.getElementById('pwd-hint');
-  const original = hint.textContent;
-  hint.textContent = text;
-  hint.classList.add('text-green-600', 'font-semibold');
-  setTimeout(() => {
-    hint.textContent = original;
-    hint.classList.remove('text-green-600', 'font-semibold');
-  }, 2000);
-}
-
-// Warn before leaving with unsaved changes
-(function () {
-  const form = document.getElementById('school-form');
-  const initial = new FormData(form);
-  let dirty = false;
-
-  form.addEventListener('input', () => { dirty = true; });
-  form.addEventListener('submit', () => { dirty = false; });
-
-  window.addEventListener('beforeunload', (e) => {
-    if (dirty) {
-      e.preventDefault();
-      e.returnValue = '';
+  /* Cryptographically secure password generation */
+  function copyPassword() {
+    const input = document.getElementById('password');
+    input.select();
+    input.setSelectionRange(0, 99999);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(input.value)
+        .then(function () { flashHint('Copied to clipboard ✓'); })
+        .catch(function () { document.execCommand('copy'); flashHint('Copied ✓'); });
+    } else {
+      document.execCommand('copy');
+      flashHint('Copied ✓');
     }
-  });
-})();
+  }
+
+  function generatePassword() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#%&';
+    const bytes = new Uint32Array(14);
+    (window.crypto || window.msCrypto).getRandomValues(bytes);
+    let out = '';
+    for (let i = 0; i < 14; i++) {
+      out += chars.charAt(bytes[i] % chars.length);
+    }
+    document.getElementById('password').value = out;
+    flashHint('Generated a new password');
+  }
+
+  function flashHint(text) {
+    const hint = document.getElementById('pwd-hint');
+    const original = hint.dataset.original || hint.textContent;
+    hint.textContent = text;
+    hint.classList.add('text-green-600', 'font-semibold');
+    setTimeout(function () {
+      hint.textContent = original;
+      hint.classList.remove('text-green-600', 'font-semibold');
+    }, 2000);
+  }
+
+  (function () {
+    const form = document.getElementById('school-form');
+    if (!form) return;
+    let dirty = false;
+    form.addEventListener('input',  function () { dirty = true; });
+    form.addEventListener('submit', function () { dirty = false; });
+    window.addEventListener('beforeunload', function (e) {
+      if (dirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    });
+  })();
 </script>
 
 {% endblock %}

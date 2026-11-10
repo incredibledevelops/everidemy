@@ -17,13 +17,15 @@
   <!-- Paystack -->
   <div class="bg-white rounded-2xl border border-slate-100 p-6 sm:p-8">
     <div class="flex items-start gap-3">
-      <div class="w-10 h-10 rounded-xl bg-emerald-50 grid place-items-center text-emerald-600 shrink-0 font-bold text-sm">
-        ₦
+      {# Paystack icon — Ghana context uses GH₵, not ₦ #}
+      <div class="w-10 h-10 rounded-xl bg-emerald-50 grid place-items-center
+                  text-emerald-600 shrink-0 font-bold text-xs">
+        GH₵
       </div>
       <div class="flex-1">
         <h2 class="font-bold">Paystack</h2>
         <p class="text-sm text-slate-500 mt-0.5">
-          Accept online fee payments from parents.
+          Accept online fee payments from parents in Ghana cedi (GHS).
         </p>
       </div>
       {% if settings.paystack_public_key %}

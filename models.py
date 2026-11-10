@@ -17,16 +17,11 @@ from extensions import (
 from config import Config
 
 
-# =====================================================================
-# LOW-LEVEL HELPERS
-# =====================================================================
 def _now():
-    """Central UTC clock. Change here to change everywhere."""
     return datetime.utcnow()
 
 
 def to_object_id(value):
-    """Safe ObjectId conversion. Returns None on bad input."""
     try:
         return ObjectId(str(value))
     except Exception:
@@ -35,11 +30,11 @@ def to_object_id(value):
 
 def format_money(amount):
     """
-    Format an integer/float as GH₵ 500 (or whatever Config says).
-    Fallback so a bad value never crashes a template.
+    Format an integer/float as GH₵ 500.00 (or whatever Config says).
+    Preserves 2 decimal places for money precision.
     """
     try:
-        return f"{Config.CURRENCY_SYMBOL} {int(amount):,}"
+        return f"{Config.CURRENCY_SYMBOL} {float(amount):,.2f}"
     except Exception:
         return f"{Config.CURRENCY_SYMBOL} {amount}"
 
@@ -51,14 +46,6 @@ class School:
     @staticmethod
     def create(name, owner_email, owner_name, password=None, phone=None,
                plan=None, address=None, type=None, send_welcome=False):
-        """
-        Create a school + its first admin user + a subscription row.
-
-        The school starts in status "unpaid" and is LOCKED until the
-        admin completes a Paystack checkout. There is no trial period.
-
-        Returns (school_doc, user_doc) both including `_id`.
-        """
         now = _now()
         plan = plan or Config.PLAN_KEY
 
@@ -67,8 +54,8 @@ class School:
             "type": (type or "primary").lower(),
             "logo": None,
             "plan": plan,
-            "subscription_status": "unpaid",   # locked until paid
-            "trial_ends_at": None,             # no trial
+            "subscription_status": "unpaid",
+            "trial_ends_at": None,
             "paystack_customer_code": None,
             "phone": phone,
             "address": address or {},
@@ -78,7 +65,6 @@ class School:
         }
         school_id = schools.insert_one(school_doc).inserted_id
 
-        # First admin user
         password = password or "ChangeMe123!"
         user_doc = {
             "school_id": school_id,
@@ -93,7 +79,6 @@ class School:
         }
         user_id = users.insert_one(user_doc).inserted_id
 
-        # Subscription row — status starts as "unpaid"
         subscriptions.insert_one({
             "school_id": school_id,
             "plan": plan,
@@ -107,7 +92,6 @@ class School:
 
         School.log(school_id, user_id, "school.created", {"name": name})
 
-        # Welcome email (best-effort)
         if send_welcome:
             try:
                 from utils.mailer import send_welcome_email
@@ -119,7 +103,6 @@ class School:
 
     @staticmethod
     def update(school_id, data: dict, actor_id=None):
-        """Update only whitelisted school fields."""
         oid = to_object_id(school_id)
         if not oid:
             return False
@@ -134,13 +117,6 @@ class School:
 
     @staticmethod
     def delete(school_id, actor_id=None):
-        """
-        Delete a school and cascade-delete ALL of its tenant data.
-
-        Every school-scoped collection is wiped, plus any audit log rows
-        the school created. Platform-level audit entries (school_id=None)
-        are preserved.
-        """
         oid = to_object_id(school_id)
         if not oid:
             return False
@@ -149,7 +125,6 @@ class School:
         if not s:
             return False
 
-        # Log first, then delete.
         audit_logs.insert_one({
             "school_id": None,
             "actor_id": actor_id,
@@ -158,8 +133,6 @@ class School:
             "timestamp": _now(),
         })
 
-        # Import here (not at module top) to avoid a circular import:
-        # extensions.py imports Config, but routes import models → extensions.
         from extensions import (
             attendance as attendance_coll,
             grades as grades_coll,
@@ -172,31 +145,17 @@ class School:
             webhook_events as webhook_events_coll,
         )
 
-        # Every collection that carries a `school_id`.
         tenant_collections = [
-            users,
-            students,
-            staff,
-            classes_coll,
-            subjects_coll,
-            attendance_coll,
-            grades_coll,
-            invoices,
-            payments_coll,
-            fee_structures_coll,
-            messages_coll,
-            announcements,
-            timetable_coll,
-            subscriptions,
-            audit_logs,
-            webhook_events_coll,
+            users, students, staff, classes_coll, subjects_coll,
+            attendance_coll, grades_coll, invoices, payments_coll,
+            fee_structures_coll, messages_coll, announcements,
+            timetable_coll, subscriptions, audit_logs, webhook_events_coll,
         ]
 
         for coll in tenant_collections:
             try:
                 coll.delete_many({"school_id": oid})
             except Exception as e:
-                # Don't let one bad collection block the whole delete.
                 print(f"[warn] cascade delete failed on {coll.name}: {e}")
 
         schools.delete_one({"_id": oid})
@@ -249,7 +208,6 @@ class School:
 
     @staticmethod
     def toggle_suspend(school_id, actor_id=None):
-        """Flip the `suspended` flag. Returns the new boolean state."""
         oid = to_object_id(school_id)
         s = schools.find_one({"_id": oid})
         if not s:
@@ -288,7 +246,6 @@ class School:
 
     @staticmethod
     def get_owner(school_id):
-        """Return the first school_admin user for a school (or None)."""
         oid = to_object_id(school_id)
         if not oid:
             return None
@@ -366,7 +323,6 @@ class Analytics:
         canceled        = schools.count_documents({"subscription_status": "canceled"})
         suspended       = schools.count_documents({"suspended": True})
 
-        # Single-plan model: MRR = active schools × plan price
         mrr = active_schools * Config.PLAN_PRICE
 
         total_students = students.count_documents({})

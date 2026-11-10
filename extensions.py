@@ -3,14 +3,13 @@ Everidemy — Shared extensions.
 
 Single place to instantiate:
 - The MongoDB client + every collection handle used across the app
-- The Flask-Mail instance
-
-Importing this module does NOT require a Flask app context.
-`mail.init_app(app)` is called inside `create_app()`.
+- Resend (email)
+- Arkesel (SMS)
 """
+import resend
+import requests
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
-from flask_mail import Mail
 
 from config import Config
 
@@ -20,13 +19,10 @@ from config import Config
 # =========================================================
 client = MongoClient(
     Config.MONGO_URI,
-    # Fail fast when Mongo is unreachable (default is 30s)
     serverSelectionTimeoutMS=5000,
     connectTimeoutMS=5000,
     socketTimeoutMS=20000,
-    # Auto-retry transient network errors on writes
     retryWrites=True,
-    # Appears in `db.currentOp()` and server logs — helps when debugging
     appname="everidemy",
 )
 
@@ -36,46 +32,33 @@ db = client[Config.MONGO_DB_NAME]
 # ---------------------------------------------------------
 # Collections
 # ---------------------------------------------------------
-# Core tenancy
 schools          = db.schools
 users            = db.users
 
-# People
 students         = db.students
 staff            = db.staff
 
-# Academics
 classes          = db.classes
 subjects         = db.subjects
 attendance       = db.attendance
 grades           = db.grades
 timetable        = db.timetable
 
-# Fees & billing
-fees             = db.fees             # ← legacy / reserved
+fees             = db.fees
 fee_structures   = db.fee_structures
 invoices         = db.invoices
 payments         = db.payments
 subscriptions    = db.subscriptions
 
-# Communication
 announcements    = db.announcements
 messages         = db.messages
 
-# Platform / ops
 audit_logs       = db.audit_logs
 tickets          = db.tickets
 webhook_events   = db.webhook_events
 
 
-# ---------------------------------------------------------
-# Boot-time connectivity check
-# ---------------------------------------------------------
 def ping_mongo() -> tuple[bool, str | None]:
-    """
-    Return (ok, error_message).
-    Uses a fast ping to fail loudly if the DB is unreachable.
-    """
     try:
         client.admin.command("ping")
         return True, None
@@ -86,6 +69,61 @@ def ping_mongo() -> tuple[bool, str | None]:
 
 
 # =========================================================
-# FLASK-MAIL
+# RESEND (Email)
 # =========================================================
-mail = Mail()
+if Config.RESEND_API_KEY:
+    resend.api_key = Config.RESEND_API_KEY
+
+
+# =========================================================
+# ARKESEL (SMS)
+# =========================================================
+class ArkeselClient:
+    """Thin wrapper around Arkesel SMS API v2."""
+
+    def __init__(self, api_key: str, base_url: str, sender_id: str):
+        self.api_key = api_key
+        self.base_url = base_url.rstrip("/")
+        self.sender_id = sender_id
+
+    def send_sms(self, recipients: list[str], message: str, sender: str | None = None) -> tuple[bool, dict | None]:
+        """
+        Send an SMS via Arkesel.
+        Returns (ok, response_dict).
+        """
+        if not self.api_key:
+            return False, {"error": "ARKESEL_API_KEY not configured"}
+
+        payload = {
+            "sender": sender or self.sender_id,
+            "message": message,
+            "recipients": recipients,
+        }
+
+        try:
+            resp = requests.post(
+                f"{self.base_url}/sms/send",
+                json=payload,
+                headers={
+                    "api-key": self.api_key,
+                    "Content-Type": "application/json",
+                },
+                timeout=15,
+            )
+            try:
+                body = resp.json()
+            except Exception:
+                body = {"raw": resp.text[:500]}
+
+            if resp.status_code in (200, 201) and body.get("status") == "success":
+                return True, body
+            return False, body
+        except Exception as e:
+            return False, {"error": str(e)}
+
+
+sms = ArkeselClient(
+    api_key=Config.ARKESEL_API_KEY,
+    base_url=Config.ARKESEL_BASE_URL,
+    sender_id=Config.ARKESEL_SENDER_ID,
+)

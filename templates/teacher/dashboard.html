@@ -1,32 +1,42 @@
 {% extends "teacher/base.html" %}
-{% block page_title %}Welcome, {{ g.user.name.split(' ')[0] }} 👋{% endblock %}
+{% block page_title %}Welcome, {{ ((g.user.name or 'there').split(' ')[0]) if g.user else 'there' }} 👋{% endblock %}
 {% block breadcrumb %}Overview{% endblock %}
 
 {% block content %}
 
+{% set _classes  = my_classes     if my_classes     is defined and my_classes     else [] %}
+{% set _subjects = my_subjects    if my_subjects    is defined and my_subjects    else [] %}
+{% set _students = total_students if total_students is defined and total_students is not none else 0 %}
+{% set _marked   = attendance_marked if attendance_marked is defined else false %}
+{% set _att_pct  = attendance_pct if attendance_pct is defined and attendance_pct is not none else 0 %}
+{% set _unread   = unread_messages if unread_messages is defined and unread_messages is not none else 0 %}
+{% set _slots    = today_slots      if today_slots      is defined and today_slots      else [] %}
+{% set _weekly   = weekly_attendance if weekly_attendance is defined and weekly_attendance else [] %}
+{% set _notices  = recent_notices   if recent_notices   is defined and recent_notices   else [] %}
+
 <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
-    <p class="text-xs uppercase font-semibold text-slate-500">My Classes</p>
-    <p class="mt-2 text-3xl font-extrabold">{{ my_classes|length }}</p>
-    <p class="mt-1 text-xs text-slate-500">{{ my_subjects|length }} subjects</p>
+    <p class="text-xs uppercase font-semibold text-slate-500">My classes</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ _classes|length }}</p>
+    <p class="mt-1 text-xs text-slate-500">{{ _subjects|length }} subjects</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
-    <p class="text-xs uppercase font-semibold text-slate-500">My Students</p>
-    <p class="mt-2 text-3xl font-extrabold">{{ total_students }}</p>
+    <p class="text-xs uppercase font-semibold text-slate-500">My students</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ _students }}</p>
     <p class="mt-1 text-xs text-slate-500">Across all classes</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Attendance today</p>
     <p class="mt-2 text-3xl font-extrabold">
-      {% if attendance_marked %}{{ attendance_pct }}%{% else %}—{% endif %}
+      {% if _marked %}{{ _att_pct }}%{% else %}—{% endif %}
     </p>
     <p class="mt-1 text-xs text-slate-500">
-      {% if attendance_marked %}Overall present{% else %}Not marked{% endif %}
+      {% if _marked %}Overall present{% else %}Not marked{% endif %}
     </p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Unread</p>
-    <p class="mt-2 text-3xl font-extrabold">{{ unread_messages }}</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ _unread }}</p>
     <p class="mt-1 text-xs text-slate-500">Messages</p>
   </div>
 </div>
@@ -34,17 +44,21 @@
 <div class="grid lg:grid-cols-2 gap-6">
   <div class="bg-white rounded-2xl border border-slate-100 p-6">
     <h2 class="font-bold">Today's schedule</h2>
-    {% if today_slots %}
+    {% if _slots %}
       <ul class="mt-4 divide-y divide-slate-100">
-        {% for s in today_slots %}
+        {% for s in _slots %}
           <li class="py-3 flex items-center gap-3">
             <div class="text-center w-16 shrink-0">
-              <p class="text-sm font-bold text-brand-600">{{ s.start }}</p>
-              <p class="text-xs text-slate-400">{{ s.end }}</p>
+              <p class="text-sm font-bold text-brand-600">{{ s.start or '?' }}</p>
+              <p class="text-xs text-slate-400">{{ s.end or '?' }}</p>
             </div>
             <div class="flex-1 min-w-0">
-              <p class="font-semibold truncate">{{ s._subject.name if s._subject else '—' }}</p>
-              <p class="text-xs text-slate-500">{{ s._class.name if s._class else '' }}</p>
+              <p class="font-semibold truncate">
+                {{ (s._subject.name if s._subject else none) or '—' }}
+              </p>
+              <p class="text-xs text-slate-500">
+                {{ (s._class.name if s._class else none) or '' }}
+              </p>
             </div>
           </li>
         {% endfor %}
@@ -56,26 +70,36 @@
 
   <div class="bg-white rounded-2xl border border-slate-100 p-6">
     <h2 class="font-bold">Weekly attendance</h2>
-    <div class="mt-4 flex items-end gap-1.5 h-40">
-      {% for d in weekly_attendance %}
-        <div class="flex-1 flex flex-col items-center gap-2 group">
-          <div class="w-full rounded-t bg-brand-500 transition-all"
-               style="height: {{ d.pct if d.marked else 3 }}%"></div>
-          <span class="text-[10px] text-slate-500">{{ d.label }}</span>
-        </div>
-      {% endfor %}
-    </div>
+    {% if _weekly %}
+      <div class="mt-4 flex items-end gap-1.5 h-40">
+        {% for d in _weekly %}
+          {% set dp = d.pct if d.pct is defined and d.pct is not none else 0 %}
+          <div class="flex-1 flex flex-col items-center gap-2">
+            <div class="w-full rounded-t transition-all
+                        {{ 'bg-green-500' if d.marked and dp >= 90
+                           else 'bg-brand-500' if d.marked and dp >= 75
+                           else 'bg-amber-500' if d.marked
+                           else 'bg-slate-200' }}"
+                 style="height: {{ dp if d.marked else 3 }}%; min-height: 3px;"
+                 title="{{ d.label }}: {{ dp }}%"></div>
+            <span class="text-[10px] text-slate-500">{{ d.label }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="mt-4 text-sm text-slate-500">No attendance data yet.</p>
+    {% endif %}
   </div>
 </div>
 
 <div class="bg-white rounded-2xl border border-slate-100 p-6">
   <h2 class="font-bold">Recent notices</h2>
-  {% if recent_notices %}
+  {% if _notices %}
     <ul class="mt-4 space-y-3">
-      {% for n in recent_notices %}
+      {% for n in _notices %}
         <li class="border-l-2 border-brand-500 pl-3">
-          <p class="font-semibold text-sm truncate">{{ n.title }}</p>
-          <p class="text-xs text-slate-500">{{ n.created_at.strftime('%b %d') if n.created_at }}</p>
+          <p class="font-semibold text-sm truncate">{{ n.title or '(Untitled)' }}</p>
+          <p class="text-xs text-slate-500">{{ n.created_at.strftime('%b %d') if n.created_at else '—' }}</p>
         </li>
       {% endfor %}
     </ul>

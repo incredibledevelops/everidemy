@@ -14,9 +14,7 @@
 
 <div class="max-w-3xl mx-auto bg-white rounded-2xl border border-slate-100 p-6 sm:p-8">
 
-  <!-- =========================================================
-       Header
-       ========================================================= -->
+  <!-- Header -->
   <div class="flex items-start gap-3">
     <div class="w-11 h-11 rounded-xl bg-brand-50 grid place-items-center
                 text-brand-600 text-lg shrink-0">
@@ -30,13 +28,15 @@
     </div>
   </div>
 
+  {% if error %}
+    <div role="alert" class="mt-6 rounded-xl bg-red-50 border border-red-200 text-red-800 px-4 py-3 text-sm">
+      {{ error }}
+    </div>
+  {% endif %}
 
-  <!-- =========================================================
-       Form
-       ========================================================= -->
   <form method="POST" id="compose-form" class="mt-8 space-y-5">
 
-    <!-- ============== Recipients ============== -->
+    <!-- Recipients -->
     <div>
       <div class="flex items-center justify-between">
         <label class="text-sm font-semibold text-slate-700">
@@ -49,34 +49,33 @@
       </p>
 
       {% if recipients %}
-        <!-- Search box -->
         <div class="mt-3 relative">
           <input type="text"
                  id="recipient-search"
-                 placeholder="Search by name or email…"
+                 placeholder="Search by name, role, or email…"
+                 aria-label="Search recipients"
                  class="w-full pl-10 pr-3 py-2.5 text-sm rounded-lg border border-slate-200
                         focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10
                         outline-none transition">
           <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                     d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/>
             </svg>
           </span>
         </div>
 
-        <!-- Recipient list -->
         <div id="recipient-list"
              class="mt-3 max-h-64 overflow-y-auto border border-slate-200 rounded-xl p-2 space-y-1">
           {% set selected = form.get('recipient_ids', []) %}
           {% for u in recipients %}
-            {% set is_selected = u._id|string in selected %}
-            {% set role_label = u.role|replace('_',' ')|title %}
+            {% set is_selected = (u._id|string) in selected %}
+            {% set role_label = (u.role or '')|replace('_',' ')|title %}
             <label class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-50
                           cursor-pointer transition
                           {{ 'bg-brand-50' if is_selected }}"
                    data-recipient
-                   data-name="{{ u.name|lower }}"
+                   data-name="{{ (u.name or '')|lower }}"
                    data-email="{{ (u.email or '')|lower }}"
                    data-role="{{ (u.role or '')|lower }}">
 
@@ -89,7 +88,7 @@
 
               <div class="w-8 h-8 rounded-lg bg-brand-100 grid place-items-center
                           text-brand-700 text-xs font-bold shrink-0">
-                {{ u.name[:1]|upper }}
+                {{ (u.name or '?')[:1]|upper }}
               </div>
 
               <div class="flex-1 min-w-0">
@@ -102,7 +101,6 @@
             </label>
           {% endfor %}
 
-          <!-- Empty search result -->
           <div id="recipient-empty"
                class="hidden px-3 py-8 text-center text-sm text-slate-500">
             No matches. Try a different search term.
@@ -115,10 +113,12 @@
       {% endif %}
     </div>
 
-
-    <!-- ============== Subject ============== -->
+    <!-- Subject -->
     <div>
-      <label class="text-sm font-semibold text-slate-700">Subject</label>
+      <div class="flex items-center justify-between">
+        <label for="subject-input" class="text-sm font-semibold text-slate-700">Subject</label>
+        <span id="subject-count" class="text-xs text-slate-400">0 / 120</span>
+      </div>
       <input type="text"
              name="subject"
              id="subject-input"
@@ -126,22 +126,21 @@
              maxlength="120"
              class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
                     focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition"
-             placeholder="e.g. Question about Chidera's homework">
+             placeholder="e.g. Question about {{ (children[0].first_name if children else 'a child') ~ "'s homework" }}">
       <p class="mt-1 text-xs text-slate-500">Optional. Leave blank for a quick chat.</p>
     </div>
 
-
-    <!-- ============== Body ============== -->
+    <!-- Body -->
     <div>
       <div class="flex items-center justify-between">
-        <label class="text-sm font-semibold text-slate-700">
+        <label for="body-input" class="text-sm font-semibold text-slate-700">
           Message <span class="text-red-500">*</span>
         </label>
         <span id="body-count" class="text-xs text-slate-500">0</span>
       </div>
       <textarea name="body"
                 id="body-input"
-                rows="8"
+                rows="4"
                 required
                 class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200
                        focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none
@@ -157,8 +156,7 @@
       </div>
     </div>
 
-
-    <!-- ============== Actions ============== -->
+    <!-- Actions -->
     <div class="flex flex-col sm:flex-row gap-3 pt-6 border-t border-slate-100">
       <button type="submit"
               id="send-btn"
@@ -168,6 +166,7 @@
         Send message
       </button>
       <a href="{{ url_for('parent.messages_page') }}"
+         id="cancel-btn"
          class="px-5 py-3 rounded-xl border border-slate-200 font-semibold
                 text-slate-700 hover:bg-slate-50 transition text-center">
         Cancel
@@ -178,9 +177,6 @@
 </div>
 
 
-<!-- =========================================================
-     SCRIPTS
-     ========================================================= -->
 <script>
 (function () {
   "use strict";
@@ -192,15 +188,14 @@
   const countEl       = document.getElementById('recipient-count');
   const emptyState    = document.getElementById('recipient-empty');
   const subjectInput  = document.getElementById('subject-input');
+  const subjectCount  = document.getElementById('subject-count');
   const bodyInput     = document.getElementById('body-input');
   const bodyCount     = document.getElementById('body-count');
   const sendBtn       = document.getElementById('send-btn');
+  const cancelBtn     = document.getElementById('cancel-btn');
 
   if (!form) return;
 
-  /* ====================================================
-     Recipient search filter
-     ==================================================== */
   function filterRecipients() {
     if (!searchInput) return;
     const q = searchInput.value.trim().toLowerCase();
@@ -218,19 +213,10 @@
       if (matches) visible++;
     });
 
-    if (emptyState) {
-      emptyState.classList.toggle('hidden', visible > 0);
-    }
+    if (emptyState) emptyState.classList.toggle('hidden', visible > 0);
   }
+  if (searchInput) searchInput.addEventListener('input', filterRecipients);
 
-  if (searchInput) {
-    searchInput.addEventListener('input', filterRecipients);
-  }
-
-
-  /* ====================================================
-     Recipient count + row highlight
-     ==================================================== */
   function updateCount() {
     let n = 0;
     checkboxes.forEach(cb => {
@@ -245,19 +231,23 @@
     if (countEl) countEl.textContent = n + ' selected';
     updateSendState();
   }
-
   checkboxes.forEach(cb => cb.addEventListener('change', updateCount));
   updateCount();
 
-
-  /* ====================================================
-     Send-button enable/disable
-     ==================================================== */
   function updateSendState() {
     if (!sendBtn) return;
     const hasRecipient = Array.from(checkboxes).some(cb => cb.checked);
     const hasBody      = (bodyInput?.value || '').trim().length > 0;
     sendBtn.disabled = !(hasRecipient && hasBody);
+  }
+
+  if (subjectInput) {
+    const updateSubj = () => {
+      if (subjectCount) subjectCount.textContent = subjectInput.value.length + ' / 120';
+      dirty = true;
+    };
+    subjectInput.addEventListener('input', updateSubj);
+    if (subjectCount) subjectCount.textContent = subjectInput.value.length + ' / 120';
   }
 
   if (bodyInput) {
@@ -268,10 +258,6 @@
     if (bodyCount) bodyCount.textContent = bodyInput.value.length;
   }
 
-
-  /* ====================================================
-     Auto-grow the body textarea
-     ==================================================== */
   if (bodyInput) {
     const MAX = 320;
     const grow = () => {
@@ -282,26 +268,24 @@
     grow();
   }
 
-
-  /* ====================================================
-     Ctrl / Cmd + Enter to send
-     ==================================================== */
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      if (!sendBtn?.disabled) {
+      if (sendBtn && !sendBtn.disabled) {
         e.preventDefault();
         form.submit();
       }
     }
   });
 
-
-  /* ====================================================
-     Unsaved-changes warning
-     ==================================================== */
+  /* Unsaved-changes warning */
   let dirty = false;
-  form.addEventListener('input',  () => { dirty = true; });
+  form.addEventListener('input', () => { dirty = true; });
   form.addEventListener('submit', () => { dirty = false; });
+
+  /* Cancel button should NOT trigger the leave-page prompt */
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', () => { dirty = false; });
+  }
 
   window.addEventListener('beforeunload', (e) => {
     const hasRecipient = Array.from(checkboxes).some(cb => cb.checked);
@@ -313,10 +297,6 @@
     }
   });
 
-
-  /* ====================================================
-     Focus the right field on load
-     ==================================================== */
   setTimeout(() => {
     const preselected = Array.from(checkboxes).some(cb => cb.checked);
     if (preselected && bodyInput) {

@@ -110,7 +110,7 @@
             <input type="text" name="item_name" placeholder="Tuition"
                    class="flex-1 px-3 py-2.5 text-sm rounded-lg border border-slate-200
                           focus:border-brand-500 outline-none">
-            <input type="number" name="item_amount" step="0.01" min="0" placeholder="800"
+            <input type="number" name="item_amount" step="0.01" min="0" placeholder="0"
                    oninput="updateTotal()"
                    class="w-32 px-3 py-2.5 text-sm rounded-lg border border-slate-200
                           focus:border-brand-500 outline-none text-right">
@@ -122,7 +122,9 @@
 
       <div class="mt-4 flex items-center justify-between px-4 py-3 rounded-xl bg-brand-50 border border-brand-100">
         <span class="text-sm font-semibold text-brand-700">Total per student</span>
-        <span id="total-display" class="text-xl font-extrabold text-brand-700">{{ format_money(form.get('total', 0)) }}</span>
+        <span id="total-display" class="text-xl font-extrabold text-brand-700">
+          {{ format_money(form.get('total', 0)) }}
+        </span>
       </div>
     </div>
 
@@ -140,6 +142,17 @@
 </div>
 
 <script>
+/* Format money the same way `format_money` does server-side:
+   "GH₵ 1,234.50" — currency + space + thousands separator + 2 decimals.
+   (Matches the Cedi-first UX of the rest of the app.) */
+function fmtMoney(n) {
+  const v = Number(n) || 0;
+  const fixed = v.toFixed(2);
+  const [intPart, decPart] = fixed.split('.');
+  const withCommas = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return 'GH₵ ' + withCommas + '.' + decPart;
+}
+
 function addItemRow() {
   const container = document.getElementById('items-container');
   const row = document.createElement('div');
@@ -154,6 +167,7 @@ function addItemRow() {
             class="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm">✕</button>
   `;
   container.appendChild(row);
+  row.querySelector('input[name="item_amount"]')?.focus();
 }
 
 function removeItemRow(btn) {
@@ -170,7 +184,7 @@ function updateTotal() {
     const n = parseFloat(a.value);
     if (!isNaN(n)) total += n;
   });
-  document.getElementById('total-display').textContent = 'GH₵ ' + total.toLocaleString();
+  document.getElementById('total-display').textContent = fmtMoney(total);
 }
 updateTotal();
 </script>

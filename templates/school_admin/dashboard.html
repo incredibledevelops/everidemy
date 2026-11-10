@@ -1,6 +1,6 @@
 {% extends "school_admin/base.html" %}
 
-{% block page_title %}Welcome back, {{ g.user.name.split(' ')[0] if g.user else '' }} 👋{% endblock %}
+{% block page_title %}Welcome back, {{ ((g.user.name or 'there').split(' ')[0]) if g.user else 'there' }} 👋{% endblock %}
 {% block breadcrumb %}Overview{% endblock %}
 
 {% block topbar_action %}
@@ -13,9 +13,18 @@
 
 {% block content %}
 
-{# ── Subscription banner (only when subscription is expiring soon) ── #}
-{% set _days = subscription_days_left if subscription_days_left is defined else None %}
-{% if _days is not none and _days <= 5 %}
+{# Safe defaults #}
+{% set _students  = total_students if total_students is defined and total_students is not none else 0 %}
+{% set _staff     = total_staff    if total_staff    is defined and total_staff    is not none else 0 %}
+{% set _att_mark  = attendance_marked if attendance_marked is defined else false %}
+{% set _att_pct   = attendance_pct if attendance_pct is defined and attendance_pct is not none else 0 %}
+{% set _fees_exp  = fees_expected if fees_expected is defined and fees_expected else 0 %}
+{% set _fees_col  = fees_collected if fees_collected is defined and fees_collected else 0 %}
+{% set _fees_pct  = fees_pct if fees_pct is defined and fees_pct is not none else 0 %}
+
+{# ── Subscription banner (only when expiring within 5 days, not yet expired) ── #}
+{% set _days = subscription_days_left if subscription_days_left is defined else none %}
+{% if _days is not none and _days >= 0 and _days <= 5 %}
   <div class="rounded-2xl bg-gradient-to-r from-amber-50 to-amber-100
               border border-amber-200 p-4
               flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
@@ -31,11 +40,19 @@
         </p>
       </div>
     </div>
-    <a href="{{ url_for('billing.dashboard') }}"
-       class="inline-flex justify-center items-center px-4 py-2 rounded-lg
-              bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold shrink-0">
-      Renew — {{ format_money(plans.monthly.price) }}/mo
-    </a>
+    {% if plans is defined and plans.monthly is defined %}
+      <a href="{{ url_for('billing.dashboard') }}"
+         class="inline-flex justify-center items-center px-4 py-2 rounded-lg
+                bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold shrink-0">
+        Renew — {{ format_money(plans.monthly.price) }}/mo
+      </a>
+    {% else %}
+      <a href="{{ url_for('billing.dashboard') }}"
+         class="inline-flex justify-center items-center px-4 py-2 rounded-lg
+                bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold shrink-0">
+        Renew now →
+      </a>
+    {% endif %}
   </div>
 {% endif %}
 
@@ -49,9 +66,9 @@
       <div class="w-9 h-9 rounded-lg bg-brand-50 grid place-items-center
                   text-brand-600" aria-hidden="true">👨‍🎓</div>
     </div>
-    <p class="mt-2 text-3xl font-extrabold">{{ total_students }}</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ _students }}</p>
     <p class="mt-1 text-xs text-slate-500">
-      {% if total_students %}
+      {% if _students %}
         Active enrollments
       {% else %}
         <a href="{{ url_for('school_admin.student_new') }}"
@@ -66,9 +83,9 @@
       <div class="w-9 h-9 rounded-lg bg-amber-50 grid place-items-center
                   text-amber-600" aria-hidden="true">👩‍🏫</div>
     </div>
-    <p class="mt-2 text-3xl font-extrabold">{{ total_staff }}</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ _staff }}</p>
     <p class="mt-1 text-xs text-slate-500">
-      {% if total_staff %}
+      {% if _staff %}
         Active staff
       {% else %}
         <a href="{{ url_for('school_admin.staff_new') }}"
@@ -84,11 +101,11 @@
                   text-purple-600" aria-hidden="true">📋</div>
     </div>
     <p class="mt-2 text-3xl font-extrabold">
-      {% if attendance_marked %}{{ attendance_pct }}%{% else %}—{% endif %}
+      {% if _att_mark %}{{ _att_pct }}%{% else %}—{% endif %}
     </p>
     <p class="mt-1 text-xs text-slate-500">
-      {% if attendance_marked %}
-        {{ attendance_pct }}% present
+      {% if _att_mark %}
+        Present today
       {% else %}
         <a href="{{ url_for('school_admin.attendance_page') }}"
            class="text-brand-600 font-semibold">Mark now →</a>
@@ -103,11 +120,11 @@
                   text-emerald-600" aria-hidden="true">💳</div>
     </div>
     <p class="mt-2 text-3xl font-extrabold">
-      {% if fees_expected %}{{ fees_pct }}%{% else %}—{% endif %}
+      {% if _fees_exp %}{{ _fees_pct }}%{% else %}—{% endif %}
     </p>
     <p class="mt-1 text-xs text-slate-500">
-      {% if fees_expected %}
-        {{ format_money(fees_collected) }} of {{ format_money(fees_expected) }}
+      {% if _fees_exp %}
+        {{ format_money(_fees_col) }} of {{ format_money(_fees_exp) }}
       {% else %}
         <a href="{{ url_for('school_admin.fees_page') }}"
            class="text-brand-600 font-semibold">Set up fees →</a>
@@ -176,7 +193,6 @@
 {# ── Enrollment trend + recent notices ── #}
 <div class="grid lg:grid-cols-3 gap-6">
 
-  {# ── Enrollment trend ── #}
   <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-100">
     <div class="flex items-center justify-between">
       <div>
@@ -188,9 +204,7 @@
       <span class="text-xs text-slate-400">Last 6 months</span>
     </div>
 
-    {# Use the chart only when there are at least 2 months of data
-       AND at least one non-zero month. Otherwise show a helpful
-       "not enough data" card instead of a nearly-flat line. #}
+    {# Only show chart when we have ≥2 points AND at least one non-zero count #}
     {% set has_data = false %}
     {% if enrollment_trend and enrollment_trend | length > 1 %}
       {% set ns = namespace(any_nonzero=false) %}
@@ -203,22 +217,22 @@
     {% endif %}
 
     {% if has_data %}
-      {% set values = enrollment_trend | map(attribute='count') | list %}
-      {% set labels = enrollment_trend | map(attribute='label') | list %}
-      {% set max_val = values | max %}
+      {% set values  = enrollment_trend | map(attribute='count') | map('int') | list %}
+      {% set labels  = enrollment_trend | map(attribute='label') | list %}
+      {% set max_val = values | max if values else 0 %}
       {% set max_val = max_val if max_val > 0 else 1 %}
       {% set n_points = values | length %}
-      {% set step_x = 600 / (n_points - 1) if n_points > 1 else 600 %}
-
-      {# Y scale: use 0..max_val but give a bit of headroom.
-         Map count=0 → y=200 (baseline); count=max_val → y=30 (near top). #}
-      {% set y_top = 30 %}
-      {% set y_base = 200 %}
-      {% set y_span = y_base - y_top %}
+      {% set step_x  = 600 / (n_points - 1) if n_points > 1 else 600 %}
+      {% set y_top   = 30 %}
+      {% set y_base  = 200 %}
+      {% set y_span  = y_base - y_top %}
 
       <svg viewBox="0 0 600 220" class="mt-6 w-full h-56"
            preserveAspectRatio="none" role="img"
-           aria-label="Enrollment trend chart">
+           aria-labelledby="enroll-title enroll-desc">
+        <title id="enroll-title">Enrollment trend chart</title>
+        <desc id="enroll-desc">Active student count over the last {{ n_points }} months.</desc>
+
         <defs>
           <linearGradient id="grad-school" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%"   stop-color="#3454f5" stop-opacity="0.35"/>
@@ -264,7 +278,7 @@
 
       <div class="flex justify-between text-xs text-slate-500 mt-3">
         {% for label in labels %}
-          <span>{{ label.split(' ')[0] }}</span>
+          <span>{{ (label or '').split(' ')[0] }}</span>
         {% endfor %}
       </div>
     {% else %}
@@ -312,7 +326,7 @@
               {% set ts = n.published_at or n.created_at %}
               {{ ts.strftime('%b %d · %H:%M') if ts else '' }}
               {% if n.audience %}
-                · {{ audience_labels.get(n.audience, n.audience|capitalize) }}
+                · {{ audience_labels.get(n.audience, (n.audience or '')|capitalize) }}
               {% endif %}
             </p>
           </li>
@@ -338,7 +352,6 @@
 {# ── Recent payments + weekly attendance ── #}
 <div class="grid lg:grid-cols-3 gap-6">
 
-  {# ── Recent fee payments ── #}
   <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-100 overflow-hidden">
     <div class="p-5 border-b border-slate-100 flex items-center justify-between">
       <h2 class="font-bold">Recent fee payments</h2>
@@ -362,7 +375,7 @@
               <tr class="hover:bg-slate-50">
                 <td class="px-5 py-3 font-semibold">
                   {% if p._student %}
-                    {{ p._student.last_name }} {{ p._student.first_name }}
+                    {{ p._student.last_name or '' }} {{ p._student.first_name or '' }}
                   {% else %}—{% endif %}
                 </td>
                 <td class="px-5 py-3 text-slate-600">
@@ -378,7 +391,7 @@
                         {{ 'bg-emerald-50 text-emerald-700' if p.channel == 'paystack'
                            else 'bg-blue-50 text-blue-700' if p.channel == 'transfer'
                            else 'bg-slate-100 text-slate-700' }}">
-                    {{ p.channel|capitalize }}
+                    {{ (p.channel or '')|capitalize }}
                   </span>
                 </td>
               </tr>
@@ -405,14 +418,16 @@
     {% if weekly_attendance %}
       <div class="mt-6 flex items-end gap-2 h-40">
         {% for d in weekly_attendance %}
+          {% set dp = d.pct if d.pct is defined and d.pct is not none else 0 %}
           <div class="flex-1 flex flex-col items-center gap-2">
             <div class="w-full rounded-t transition-all
-                        {{ 'bg-brand-500' if d.marked and d.pct >= 75
+                        {{ 'bg-brand-500' if d.marked and dp >= 75
                            else 'bg-amber-500' if d.marked
                            else 'bg-slate-200' }}"
-                 style="height: {{ d.pct if d.marked else 3 }}%;
+                 style="height: {{ dp if d.marked else 3 }}%;
                         min-height: 2px;"
-                 title="{{ d.label }}: {{ d.pct }}%"></div>
+                 title="{{ d.label }}: {{ dp }}%"
+                 aria-label="{{ d.label }}: {{ dp }}%"></div>
             <span class="text-[10px] text-slate-500">{{ d.label }}</span>
           </div>
         {% endfor %}
@@ -447,11 +462,11 @@
           <li class="px-5 py-4 flex items-center gap-3">
             <div class="w-9 h-9 rounded-lg bg-brand-100 grid place-items-center
                         text-brand-700 font-bold text-xs shrink-0">
-              {{ s.first_name[:1]|upper }}{{ s.last_name[:1]|upper if s.last_name }}
+              {{ (s.first_name or '?')[:1]|upper }}{{ (s.last_name or '')[:1]|upper }}
             </div>
             <div class="flex-1 min-w-0">
               <p class="font-semibold truncate">
-                {{ s.first_name }} {{ s.last_name }}
+                {{ s.first_name or '' }} {{ s.last_name or '' }}
               </p>
               <p class="text-xs text-slate-500 truncate">
                 {{ s.admission_no or '—' }}
@@ -499,7 +514,7 @@
               {{ log.action }}
             </span>
             <span class="text-slate-500 flex-1 truncate text-xs">
-              {% if log.meta %}
+              {% if log.meta and log.meta.items is defined %}
                 {% for k, v in log.meta.items() %}{{ k }}: {{ v }}{% if not loop.last %} · {% endif %}{% endfor %}
               {% else %}—{% endif %}
             </span>

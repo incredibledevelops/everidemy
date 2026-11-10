@@ -2,17 +2,36 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Report Card · {{ student.first_name }} {{ student.last_name }} · {{ term_label }}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>
+  Report Card · {{ student.first_name or '' }} {{ student.last_name or '' }} · {{ term_label or '' }}
+</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
 <script src="https://cdn.tailwindcss.com"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
 <style>
-  body { font-family: 'Inter', sans-serif; }
+  body {
+    font-family: 'Inter', sans-serif;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 
   @media print {
     @page { size: A4; margin: 12mm; }
     body { background: #fff !important; }
     .no-print { display: none !important; }
     .print-break { page-break-after: always; }
+
+    /* Keep badge + card backgrounds when printing to PDF */
+    *, *::before, *::after {
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
   }
 </style>
 </head>
@@ -28,9 +47,10 @@
        class="text-sm font-semibold text-slate-600 hover:text-brand-600">
       ← Back to profile
     </a>
-    <span class="text-slate-300">|</span>
+    <span class="text-slate-300" aria-hidden="true">|</span>
     <form method="GET" class="flex gap-2">
       <select name="term" onchange="this.form.submit()"
+              aria-label="Select term"
               class="px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white">
         {% for key, label in terms %}
           <option value="{{ key }}" {{ 'selected' if term == key }}>{{ label }}</option>
@@ -41,7 +61,7 @@
   </div>
 
   <div class="flex gap-2">
-    <button onclick="window.print()"
+    <button type="button" onclick="window.print()"
             class="px-4 py-2 text-sm font-semibold rounded-lg bg-brand-600 hover:bg-brand-700 text-white">
       🖨️ Print / Save as PDF
     </button>
@@ -57,12 +77,13 @@
   <!-- ---------- Header ---------- -->
   <div class="flex items-center gap-4 pb-6 border-b-2 border-ink-900">
     <div class="w-16 h-16 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700
-                grid place-items-center text-white font-extrabold text-2xl shrink-0">
-      {{ current_school.name[:1]|upper if current_school else 'E' }}
+                grid place-items-center text-white font-extrabold text-2xl shrink-0"
+         aria-hidden="true">
+      {{ (current_school.name or 'E')[:1]|upper if current_school else 'E' }}
     </div>
     <div class="flex-1 min-w-0">
       <h1 class="text-2xl font-extrabold leading-tight truncate">
-        {{ current_school.name if current_school else platform_name }}
+        {{ current_school.name if current_school else (platform_name or 'School') }}
       </h1>
       <p class="text-sm text-slate-500">
         {% if current_school and current_school.address %}
@@ -74,8 +95,8 @@
     </div>
     <div class="text-right shrink-0">
       <p class="text-xs uppercase tracking-widest font-bold text-slate-500">Report Card</p>
-      <p class="text-lg font-extrabold">{{ term_label }}</p>
-      <p class="text-xs text-slate-500">{{ academic_year }}</p>
+      <p class="text-lg font-extrabold">{{ term_label or '—' }}</p>
+      <p class="text-xs text-slate-500">{{ academic_year or '' }}</p>
     </div>
   </div>
 
@@ -83,17 +104,18 @@
   <div class="grid sm:grid-cols-2 gap-4 py-6 border-b border-slate-200">
     <div class="flex items-center gap-4">
       <div class="w-16 h-16 rounded-xl bg-brand-100 grid place-items-center
-                  text-brand-700 font-extrabold text-xl shrink-0">
-        {{ student.first_name[:1]|upper }}{{ student.last_name[:1]|upper if student.last_name }}
+                  text-brand-700 font-extrabold text-xl shrink-0"
+           aria-hidden="true">
+        {{ (student.first_name or '?')[:1]|upper }}{{ (student.last_name or '')[:1]|upper }}
       </div>
       <div class="min-w-0">
         <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Student</p>
         <p class="text-lg font-bold truncate">
-          {{ student.first_name }}
+          {{ student.first_name or '' }}
           {% if student.middle_name %}{{ student.middle_name }} {% endif %}
-          {{ student.last_name }}
+          {{ student.last_name or '' }}
         </p>
-        <p class="text-sm text-slate-500 font-mono">{{ student.admission_no }}</p>
+        <p class="text-sm text-slate-500 font-mono">{{ student.admission_no or '—' }}</p>
       </div>
     </div>
     <div class="grid grid-cols-2 gap-3 text-sm">
@@ -115,7 +137,7 @@
       </div>
       <div>
         <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Attendance</p>
-        <p class="font-bold">{{ attendance_pct }}%</p>
+        <p class="font-bold">{{ attendance_pct if attendance_pct is not none else 0 }}%</p>
       </div>
     </div>
   </div>
@@ -138,38 +160,44 @@
         </thead>
         <tbody>
           {% for r in rows %}
+            {% set g = r.grade if r.grade is defined else none %}
             <tr class="border-b border-slate-100">
               <td class="px-3 py-2 font-semibold">
-                {{ r.subject }}
+                {{ r.subject or '—' }}
                 {% if r.code %}<span class="text-xs text-slate-400">({{ r.code }})</span>{% endif %}
               </td>
-              <td class="px-3 py-2 text-center">{{ r.ca }}</td>
-              <td class="px-3 py-2 text-center">{{ r.exam }}</td>
-              <td class="px-3 py-2 text-center font-bold">{{ r.total }}</td>
+              <td class="px-3 py-2 text-center">{{ r.ca if r.ca is not none else '—' }}</td>
+              <td class="px-3 py-2 text-center">{{ r.exam if r.exam is not none else '—' }}</td>
+              <td class="px-3 py-2 text-center font-bold">{{ r.total if r.total is not none else '—' }}</td>
               <td class="px-3 py-2 text-center">
                 <span class="inline-block text-xs font-bold px-2 py-0.5 rounded
-                      {{ 'bg-green-100 text-green-800' if r.grade in ['A1','B2','B3']
-                         else 'bg-blue-100 text-blue-800' if r.grade in ['C4','C5','C6']
-                         else 'bg-amber-100 text-amber-800' if r.grade in ['D7','E8']
-                         else 'bg-red-100 text-red-800' }}">
-                  {{ r.grade }}
+                      {{ 'bg-green-100 text-green-800' if g and g in ['A1','B2','B3']
+                         else 'bg-blue-100 text-blue-800' if g and g in ['C4','C5','C6']
+                         else 'bg-amber-100 text-amber-800' if g and g in ['D7','E8']
+                         else 'bg-red-100 text-red-800' if g and g == 'F9'
+                         else 'bg-slate-100 text-slate-500' }}">
+                  {{ g or '—' }}
                 </span>
               </td>
-              <td class="px-3 py-2 text-slate-600 text-xs">{{ r.remark }}</td>
+              <td class="px-3 py-2 text-slate-600 text-xs">{{ r.remark or '' }}</td>
             </tr>
           {% endfor %}
         </tbody>
         <tfoot class="bg-slate-50">
           <tr>
             <td colspan="3" class="px-3 py-2 font-bold text-right">Overall Average:</td>
-            <td class="px-3 py-2 text-center font-extrabold text-lg">{{ average }}%</td>
+            <td class="px-3 py-2 text-center font-extrabold text-lg">
+              {{ average if average is not none else 0 }}%
+            </td>
             <td class="px-3 py-2 text-center">
+              {% set og = overall_grade if overall_grade is defined else none %}
               <span class="inline-block text-xs font-bold px-2 py-0.5 rounded
-                    {{ 'bg-green-100 text-green-800' if overall_grade in ['A1','B2','B3']
-                       else 'bg-blue-100 text-blue-800' if overall_grade in ['C4','C5','C6']
-                       else 'bg-amber-100 text-amber-800' if overall_grade in ['D7','E8']
-                       else 'bg-red-100 text-red-800' }}">
-                {{ overall_grade or '—' }}
+                    {{ 'bg-green-100 text-green-800' if og and og in ['A1','B2','B3']
+                       else 'bg-blue-100 text-blue-800' if og and og in ['C4','C5','C6']
+                       else 'bg-amber-100 text-amber-800' if og and og in ['D7','E8']
+                       else 'bg-red-100 text-red-800' if og and og == 'F9'
+                       else 'bg-slate-100 text-slate-500' }}">
+                {{ og or '—' }}
               </span>
             </td>
             <td class="px-3 py-2 text-xs font-semibold">{{ overall_remark or '' }}</td>
@@ -185,24 +213,25 @@
   </div>
 
   <!-- ---------- Attendance summary ---------- -->
+  {% set _att = attendance if attendance is defined and attendance else {} %}
   <div class="py-6 border-t border-slate-200">
     <h2 class="font-bold text-lg mb-3">Attendance</h2>
     <div class="grid grid-cols-4 gap-3 text-sm">
       <div class="border border-slate-200 rounded-lg p-3 text-center">
         <p class="text-xs uppercase font-semibold text-green-700">Present</p>
-        <p class="mt-1 text-xl font-extrabold">{{ attendance.present }}</p>
+        <p class="mt-1 text-xl font-extrabold">{{ _att.get('present', 0) if _att.get is defined else (_att.present if _att.present is defined else 0) }}</p>
       </div>
       <div class="border border-slate-200 rounded-lg p-3 text-center">
         <p class="text-xs uppercase font-semibold text-red-700">Absent</p>
-        <p class="mt-1 text-xl font-extrabold">{{ attendance.absent }}</p>
+        <p class="mt-1 text-xl font-extrabold">{{ _att.get('absent', 0) if _att.get is defined else (_att.absent if _att.absent is defined else 0) }}</p>
       </div>
       <div class="border border-slate-200 rounded-lg p-3 text-center">
         <p class="text-xs uppercase font-semibold text-amber-700">Late</p>
-        <p class="mt-1 text-xl font-extrabold">{{ attendance.late }}</p>
+        <p class="mt-1 text-xl font-extrabold">{{ _att.get('late', 0) if _att.get is defined else (_att.late if _att.late is defined else 0) }}</p>
       </div>
       <div class="border border-slate-200 rounded-lg p-3 text-center">
         <p class="text-xs uppercase font-semibold text-blue-700">Excused</p>
-        <p class="mt-1 text-xl font-extrabold">{{ attendance.excused }}</p>
+        <p class="mt-1 text-xl font-extrabold">{{ _att.get('excused', 0) if _att.get is defined else (_att.excused if _att.excused is defined else 0) }}</p>
       </div>
     </div>
   </div>
@@ -224,15 +253,16 @@
   </div>
 
   <!-- ---------- Remarks + signature ---------- -->
+  {% set _avg = average if average is defined and average is not none else 0 %}
   <div class="grid sm:grid-cols-2 gap-6 py-6 border-t border-slate-200">
     <div>
       <p class="text-xs uppercase tracking-wider font-bold text-slate-500 mb-2">Form Teacher's Remarks</p>
       <p class="text-sm italic text-slate-500">
-        {% if average >= 75 %}
+        {% if _avg >= 75 %}
           Excellent performance. Keep up the great work!
-        {% elif average >= 60 %}
+        {% elif _avg >= 60 %}
           Good effort. Continue to improve.
-        {% elif average >= 45 %}
+        {% elif _avg >= 45 %}
           Fair performance. More dedication needed.
         {% else %}
           Needs significant improvement. Please work harder.
@@ -245,11 +275,11 @@
     <div>
       <p class="text-xs uppercase tracking-wider font-bold text-slate-500 mb-2">Principal's Remarks</p>
       <p class="text-sm italic text-slate-500">
-        {% if average >= 75 %}
+        {% if _avg >= 75 %}
           Outstanding academic achievement this term.
-        {% elif average >= 60 %}
+        {% elif _avg >= 60 %}
           Solid academic standing. Well done.
-        {% elif average >= 45 %}
+        {% elif _avg >= 45 %}
           Satisfactory result. Aim higher next term.
         {% else %}
           Needs focused intervention.
@@ -263,8 +293,8 @@
 
   <!-- ---------- Footer ---------- -->
   <div class="pt-6 border-t border-slate-200 text-xs text-slate-400 flex items-center justify-between">
-    <p>Issued on {{ now.strftime('%B %d, %Y') }}</p>
-    <p>Generated by {{ platform_name }}</p>
+    <p>Issued on {{ now.strftime('%B %d, %Y') if now else '' }}</p>
+    <p>Generated by {{ platform_name or 'Everidemy' }}</p>
   </div>
 </div>
 

@@ -37,7 +37,8 @@ auth_bp = Blueprint("auth", __name__)
 # =========================================================
 # CONSTANTS
 # =========================================================
-VALID_SCHOOL_TYPES = {"primary", "secondary", "high", "mixed", "nursery", "vocational"}
+# FIXED: Added "combined" to the list of valid school types.
+VALID_SCHOOL_TYPES = {"primary", "secondary", "high", "mixed", "nursery", "vocational", "combined"}
 
 
 # =========================================================

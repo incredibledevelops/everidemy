@@ -8,19 +8,21 @@
   <!-- ========== MOBILE OVERLAY ========== -->
   <div id="drawer-overlay"
        onclick="closeDrawer()"
-       class="fixed inset-0 z-30 bg-ink-900/60 backdrop-blur-sm hidden lg:hidden transition-opacity"></div>
+       class="fixed inset-0 z-30 bg-ink-900/60 backdrop-blur-sm hidden lg:hidden transition-opacity"
+       aria-hidden="true"></div>
 
   <!-- ========== SIDEBAR ========== -->
   <aside id="sidebar"
          class="fixed lg:sticky top-0 inset-y-0 left-0 z-40 w-72 bg-white border-r border-slate-100
                 flex flex-col -translate-x-full lg:translate-x-0 transition-transform duration-300
-                h-screen">
+                h-screen"
+         aria-label="School admin navigation">
 
     <!-- Brand / School header -->
     <div class="h-16 flex items-center px-5 border-b border-slate-100 shrink-0 gap-3">
       <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700
                   grid place-items-center text-white font-extrabold text-sm shrink-0">
-        {{ g.school.name[:1]|upper if g.school else 'S' }}
+        {{ (g.school.name or 'S')[:1]|upper if g.school else 'S' }}
       </div>
       <div class="min-w-0 flex-1">
         <p class="font-bold text-sm truncate" title="{{ g.school.name if g.school else '' }}">
@@ -29,23 +31,26 @@
         <p class="text-[10px] text-slate-500 uppercase tracking-wide">
           {% if g.school %}
             {% if g.school.subscription_status == 'active' %}
-              {{ g.school.plan|capitalize }} plan
+              {{ (g.school.plan or 'active')|capitalize }} plan
             {% else %}
               <span class="text-amber-600 font-semibold">Payment required</span>
             {% endif %}
           {% endif %}
         </p>
       </div>
-      <button onclick="closeDrawer()"
-              class="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-500">
+      <button type="button" onclick="closeDrawer()"
+              class="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-500"
+              aria-label="Close menu">
         {{ icon('x') }}
       </button>
     </div>
 
-    <!-- Subscription banner (only if expiring soon) -->
-    {% if g.school and g.school.subscription_status == 'active' and g.school.subscription_ends_at %}
+    <!-- Subscription banner (only if expiring in the next 3 days) -->
+    {% if g.school and now
+          and g.school.subscription_status == 'active'
+          and g.school.subscription_ends_at %}
       {% set days_left = (g.school.subscription_ends_at - now).days %}
-      {% if days_left <= 3 and days_left >= 0 %}
+      {% if days_left >= 0 and days_left <= 3 %}
         <div class="mx-3 mt-3 rounded-xl bg-amber-50 border border-amber-200 px-3 py-2.5 text-xs text-amber-800">
           <p class="font-semibold">⏳ Subscription ends in {{ days_left }} day{{ 's' if days_left != 1 }}</p>
           <a href="{{ url_for('billing.dashboard') }}"
@@ -64,24 +69,24 @@
       ('People', [
         ('school_admin.students_list',      'users',   'Students'),
         ('school_admin.staff_list',         'user',    'Staff'),
-        ('school_admin.portal_access_list', 'key',     'Portal Access'),
+        ('school_admin.portal_access_list', 'lock',    'Portal Access'),
       ]),
       ('Academics', [
-        ('school_admin.classes_list',   'building','Classes'),
-        ('school_admin.subjects_list',  'book',    'Subjects'),
-        ('school_admin.timetable',      'calendar','Timetable'),
-        ('school_admin.attendance_page','check',   'Attendance'),
-        ('school_admin.exams_page',     'pencil',  'Exams & Grades'),
+        ('school_admin.classes_list',   'building', 'Classes'),
+        ('school_admin.subjects_list',  'book',     'Subjects'),
+        ('school_admin.timetable',      'calendar', 'Timetable'),
+        ('school_admin.attendance_page','check',    'Attendance'),
+        ('school_admin.exams_page',     'pencil',   'Exams & Grades'),
       ]),
       ('Finance', [
-        ('school_admin.fees_page',      'card',    'Fees & Invoices'),
+        ('school_admin.fees_page',      'card',     'Fees & Invoices'),
       ]),
       ('Communication', [
         ('school_admin.announcements_page', 'megaphone', 'Announcements'),
         ('school_admin.messages_page',      'chat',      'Messages'),
       ]),
       ('Insights', [
-        ('school_admin.reports_page',   'chart',   'Reports'),
+        ('school_admin.reports_page',   'chart',    'Reports'),
       ]),
     ] %}
 
@@ -99,7 +104,8 @@
                         {{ 'bg-brand-50 text-brand-700 font-semibold' if is_active
                            else 'text-slate-600 hover:bg-slate-50 hover:text-slate-900' }}">
                 {% if is_active %}
-                  <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-brand-500"></span>
+                  <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-brand-500"
+                        aria-hidden="true"></span>
                 {% endif %}
                 <span class="shrink-0 w-5 h-5 grid place-items-center
                              {{ 'text-brand-600' if is_active else 'text-slate-400 group-hover:text-slate-600' }} transition">
@@ -113,14 +119,19 @@
       {% endfor %}
     </nav>
 
-    <!-- Billing CTA — points at the real billing blueprint -->
+    <!-- Billing CTA -->
     <div class="px-3 pb-3 shrink-0">
       <a href="{{ url_for('billing.dashboard') }}"
          class="block relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 p-4 hover:shadow-lg transition">
-        <div class="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/10 blur-xl"></div>
+        <div class="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/10 blur-xl"
+             aria-hidden="true"></div>
         <p class="relative text-[11px] uppercase tracking-widest text-brand-200 font-bold">Subscription</p>
         <p class="relative mt-1 text-sm font-bold text-white leading-snug">
-          {{ format_money(plans.monthly.price) }} / month
+          {% if plans is defined and plans.monthly is defined %}
+            {{ format_money(plans.monthly.price) }} / month
+          {% else %}
+            View plan
+          {% endif %}
         </p>
         <p class="relative mt-2 text-xs text-white/80 font-semibold">Manage plan →</p>
       </a>
@@ -135,11 +146,14 @@
       </a>
 
       <div class="relative" data-dropdown="sidebar-user">
-        <button onclick="toggleDropdown('sidebar-user')"
-                class="w-full flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-slate-50 transition">
+        <button type="button"
+                onclick="toggleDropdown('sidebar-user')"
+                class="w-full flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-slate-50 transition"
+                aria-haspopup="menu"
+                aria-expanded="false">
           <div class="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-brand-700
                       grid place-items-center text-sm font-bold text-white shrink-0">
-            {{ g.user.name[:2]|upper if g.user else 'SA' }}
+            {{ (g.user.name or 'SA')[:2]|upper if g.user else 'SA' }}
           </div>
           <div class="flex-1 min-w-0 text-left">
             <p class="text-sm font-semibold truncate">{{ g.user.name if g.user else '' }}</p>
@@ -150,21 +164,25 @@
 
         <div data-dropdown-menu="sidebar-user"
              class="hidden absolute left-0 right-0 bottom-full mb-2 rounded-xl bg-white
-                    border border-slate-200 shadow-2xl overflow-hidden z-50">
+                    border border-slate-200 shadow-2xl overflow-hidden z-50"
+             role="menu">
           <div class="px-4 py-3 border-b border-slate-100">
             <p class="text-sm font-semibold truncate">{{ g.user.email if g.user else '' }}</p>
           </div>
           <a href="{{ url_for('account.profile') }}"
-             class="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
+             class="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+             role="menuitem">
             {{ icon('user') }} My profile
           </a>
           <a href="{{ url_for('school_admin.settings_page') }}"
-             class="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
+             class="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+             role="menuitem">
             {{ icon('cog') }} School settings
           </a>
           <div class="border-t border-slate-100"></div>
           <a href="{{ url_for('auth.logout') }}"
-             class="flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50">
+             class="flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+             role="menuitem">
             {{ icon('logout') }} Log out
           </a>
         </div>
@@ -180,8 +198,9 @@
     <header class="sticky top-0 z-20 h-16 bg-white/90 backdrop-blur
                    border-b border-slate-100 flex items-center px-4 sm:px-6 gap-3 shrink-0">
 
-      <button onclick="openDrawer()"
-              class="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-700">
+      <button type="button" onclick="openDrawer()"
+              class="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-700"
+              aria-label="Open menu">
         {{ icon('menu') }}
       </button>
 
@@ -199,7 +218,7 @@
       <!-- Live clock -->
       <div class="hidden md:flex items-center gap-2 text-xs text-slate-500
                   border border-slate-200 rounded-lg px-3 py-1.5">
-        <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+        <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" aria-hidden="true"></span>
         <span id="live-clock">—</span>
       </div>
 
@@ -207,15 +226,20 @@
 
       <!-- Notifications -->
       <div class="relative" data-dropdown="notifications">
-        <button onclick="toggleDropdown('notifications')"
-                class="relative p-2 rounded-lg hover:bg-slate-100 text-slate-700">
+        <button type="button"
+                onclick="toggleDropdown('notifications')"
+                class="relative p-2 rounded-lg hover:bg-slate-100 text-slate-700"
+                aria-label="Notifications"
+                aria-haspopup="menu"
+                aria-expanded="false">
           {{ icon('bell') }}
-          <span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500"></span>
+          <span class="absolute top-1 right-1 w-2 h-2 rounded-full bg-red-500" aria-hidden="true"></span>
         </button>
 
         <div data-dropdown-menu="notifications"
              class="hidden absolute right-0 mt-2 w-80 rounded-2xl bg-white
-                    border border-slate-100 shadow-2xl overflow-hidden z-50">
+                    border border-slate-100 shadow-2xl overflow-hidden z-50"
+             role="menu">
           <div class="px-4 py-3 border-b border-slate-100">
             <p class="font-bold text-sm">Notifications</p>
           </div>
@@ -227,33 +251,41 @@
 
       <!-- User dropdown (topbar) -->
       <div class="relative hidden sm:block" data-dropdown="topbar-user">
-        <button onclick="toggleDropdown('topbar-user')"
-                class="flex items-center gap-2 p-1 pr-2 rounded-lg hover:bg-slate-100">
+        <button type="button"
+                onclick="toggleDropdown('topbar-user')"
+                class="flex items-center gap-2 p-1 pr-2 rounded-lg hover:bg-slate-100"
+                aria-label="Account menu"
+                aria-haspopup="menu"
+                aria-expanded="false">
           <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-brand-700
                       grid place-items-center text-white text-xs font-bold">
-            {{ g.user.name[:2]|upper if g.user else 'SA' }}
+            {{ (g.user.name or 'SA')[:2]|upper if g.user else 'SA' }}
           </div>
           <span class="text-slate-400">{{ icon('chevron-down') }}</span>
         </button>
 
         <div data-dropdown-menu="topbar-user"
              class="hidden absolute right-0 mt-2 w-56 rounded-2xl bg-white
-                    border border-slate-100 shadow-2xl overflow-hidden z-50">
+                    border border-slate-100 shadow-2xl overflow-hidden z-50"
+             role="menu">
           <div class="px-4 py-3 border-b border-slate-100">
             <p class="text-sm font-semibold truncate">{{ g.user.name if g.user else '' }}</p>
             <p class="text-xs text-slate-500 truncate">{{ g.user.email if g.user else '' }}</p>
           </div>
           <a href="{{ url_for('account.profile') }}"
-             class="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
+             class="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+             role="menuitem">
             {{ icon('user') }} My profile
           </a>
           <a href="{{ url_for('school_admin.settings_page') }}"
-             class="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50">
+             class="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+             role="menuitem">
             {{ icon('cog') }} School settings
           </a>
           <div class="border-t border-slate-100"></div>
           <a href="{{ url_for('auth.logout') }}"
-             class="flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50">
+             class="flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+             role="menuitem">
             {{ icon('logout') }} Log out
           </a>
         </div>
@@ -268,61 +300,69 @@
     <!-- Footer -->
     <footer class="border-t border-slate-100 px-4 sm:px-6 py-4 text-xs text-slate-500
                    flex flex-col sm:flex-row gap-2 items-center justify-between shrink-0 bg-white">
-      <p>© {{ now.year }} {{ platform_name }} · {{ g.school.name if g.school else '' }}</p>
+      <p>© {{ now.year if now else '' }} {{ platform_name }} · {{ g.school.name if g.school else '' }}</p>
       <p class="flex items-center gap-3">
-        <a href="#" class="hover:text-brand-600">Help</a>
-        <a href="#" class="hover:text-brand-600">Privacy</a>
-        <a href="#" class="hover:text-brand-600">Status</a>
+        <a href="{{ url_for('main.contact') }}" class="hover:text-brand-600">Help</a>
+        <a href="{{ url_for('main.contact') }}#privacy" class="hover:text-brand-600">Privacy</a>
+        <a href="{{ url_for('main.contact') }}" class="hover:text-brand-600">Status</a>
       </p>
     </footer>
   </div>
 </div>
 
+{% endblock %}
 
-<!-- ========== SCRIPTS ========== -->
+
+{% block scripts %}
 <script>
-function openDrawer() {
-  document.getElementById('sidebar').classList.remove('-translate-x-full');
-  document.getElementById('drawer-overlay').classList.remove('hidden');
-  document.body.style.overflow = 'hidden';
-}
-function closeDrawer() {
-  document.getElementById('sidebar').classList.add('-translate-x-full');
-  document.getElementById('drawer-overlay').classList.add('hidden');
-  document.body.style.overflow = '';
-}
-function toggleDropdown(id) {
-  const menu = document.querySelector(`[data-dropdown-menu="${id}"]`);
-  const isOpen = !menu.classList.contains('hidden');
-  document.querySelectorAll('[data-dropdown-menu]').forEach(m => m.classList.add('hidden'));
-  if (!isOpen) menu.classList.remove('hidden');
-}
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('[data-dropdown]')) {
-    document.querySelectorAll('[data-dropdown-menu]').forEach(m => m.classList.add('hidden'));
+  function openDrawer() {
+    document.getElementById('sidebar').classList.remove('-translate-x-full');
+    document.getElementById('drawer-overlay').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
   }
-});
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    document.querySelectorAll('[data-dropdown-menu]').forEach(m => m.classList.add('hidden'));
-    closeDrawer();
+  function closeDrawer() {
+    document.getElementById('sidebar').classList.add('-translate-x-full');
+    document.getElementById('drawer-overlay').classList.add('hidden');
+    document.body.style.overflow = '';
   }
-});
-function tick() {
-  const el = document.getElementById('live-clock');
-  if (!el) return;
-  const d = new Date();
-  el.textContent = d.toLocaleString('en-GB', {
-    weekday: 'short', day: '2-digit', month: 'short',
-    hour: '2-digit', minute: '2-digit'
+  function toggleDropdown(id) {
+    const menu = document.querySelector('[data-dropdown-menu="' + id + '"]');
+    if (!menu) return;
+    const isOpen = !menu.classList.contains('hidden');
+    document.querySelectorAll('[data-dropdown-menu]').forEach(function (m) {
+      m.classList.add('hidden');
+    });
+    if (!isOpen) menu.classList.remove('hidden');
+  }
+  document.addEventListener('click', function (e) {
+    if (!e.target.closest('[data-dropdown]')) {
+      document.querySelectorAll('[data-dropdown-menu]').forEach(function (m) {
+        m.classList.add('hidden');
+      });
+    }
   });
-}
-tick();
-setInterval(tick, 30000);
-window.addEventListener('resize', () => {
-  if (window.innerWidth >= 1024) closeDrawer();
-});
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('[data-dropdown-menu]').forEach(function (m) {
+        m.classList.add('hidden');
+      });
+      closeDrawer();
+    }
+  });
+  function tick() {
+    const el = document.getElementById('live-clock');
+    if (!el) return;
+    const d = new Date();
+    el.textContent = d.toLocaleString('en-GB', {
+      timeZone: 'Africa/Accra',
+      weekday: 'short', day: '2-digit', month: 'short',
+      hour: '2-digit', minute: '2-digit'
+    });
+  }
+  tick();
+  setInterval(tick, 30000);
+  window.addEventListener('resize', function () {
+    if (window.innerWidth >= 1024) closeDrawer();
+  });
 </script>
-
-{% block scripts %}{% endblock %}
 {% endblock %}

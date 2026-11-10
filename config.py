@@ -6,11 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-# ---------------------------------------------------------
-# Small helpers for safer env parsing
-# ---------------------------------------------------------
 def _env_bool(name: str, default: bool = False) -> bool:
-    """Parse a boolean env var, accepting common truthy strings."""
     val = os.getenv(name)
     if val is None:
         return default
@@ -18,11 +14,6 @@ def _env_bool(name: str, default: bool = False) -> bool:
 
 
 def _env_int(name: str, default: int = 0) -> int:
-    """
-    Parse an int env var.
-    Accepts '500' or '500.0' and casts to int.
-    Falls back to `default` if parsing fails.
-    """
     val = os.getenv(name)
     if val is None or val == "":
         return default
@@ -49,7 +40,6 @@ class Config:
     MAX_CONTENT_LENGTH = _env_int("MAX_CONTENT_LENGTH", 16 * 1024 * 1024)
 
     PREFERRED_URL_SCHEME = _env_str("PREFERRED_URL_SCHEME")
-
     JSON_SORT_KEYS = False
 
     # ---------- MongoDB ----------
@@ -62,18 +52,15 @@ class Config:
     PAYSTACK_BASE_URL   = _env_str("PAYSTACK_BASE_URL", "https://api.paystack.co")
 
     # ---------- Platform Subscription ----------
-    # NOTE: no PLAN_CODE — every month is a fresh one-time charge
-    PAYSTACK_PLATFORM_AMOUNT   = _env_int("PAYSTACK_PLATFORM_AMOUNT", 0)
+    PAYSTACK_PLATFORM_AMOUNT   = _env_int("PAYSTACK_PLATFORM_AMOUNT", 500)
     PAYSTACK_PLATFORM_CURRENCY = _env_str("PAYSTACK_PLATFORM_CURRENCY", "GHS")
 
-    # No trial, no grace — schools are locked until they pay.
     TRIAL_DAYS          = _env_int("TRIAL_DAYS", 0)
     PAYSTACK_GRACE_DAYS = _env_int("PAYSTACK_GRACE_DAYS", 0)
 
     # ---------- Platform ----------
     PLATFORM_NAME = _env_str("PLATFORM_NAME", "Everidemy")
 
-    # Currency (used for school invoices + payments)
     CURRENCY        = _env_str("PLATFORM_CURRENCY", "GHS")
     CURRENCY_SYMBOL = _env_str("PLATFORM_CURRENCY_SYMBOL", "GH₵")
 
@@ -95,7 +82,17 @@ class Config:
         },
     }
 
-    # ---------- Email ----------
+    # ---------- Resend (Email) ----------
+    RESEND_API_KEY     = _env_str("RESEND_API_KEY")
+    RESEND_FROM_EMAIL  = _env_str("RESEND_FROM_EMAIL", "Everidemy <noreply@everidemy.com>")
+    RESEND_FROM_NAME   = _env_str("RESEND_FROM_NAME", "Everidemy")
+
+    # ---------- Arkesel (SMS) ----------
+    ARKESEL_API_KEY    = _env_str("ARKESEL_API_KEY")
+    ARKESEL_SENDER_ID  = _env_str("ARKESEL_SENDER_ID", "Everidemy")
+    ARKESEL_BASE_URL   = _env_str("ARKESEL_BASE_URL", "https://sms.arkesel.com/api/v2")
+
+    # ---------- Legacy Email (SMTP — kept for backward compat, not used) ----------
     MAIL_SERVER         = _env_str("MAIL_SERVER", "smtp.gmail.com")
     MAIL_PORT           = _env_int("MAIL_PORT", 587)
     MAIL_USE_TLS        = _env_bool("MAIL_USE_TLS", True)

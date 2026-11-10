@@ -6,7 +6,7 @@
 {% block body %}
 {% include "_marketing_nav.html" %}
 
-<!-- ── Hero ───────────────────────────────────────────── -->
+<!-- Hero -->
 <section class="py-20 bg-white">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="max-w-2xl">
@@ -20,11 +20,21 @@
         From admissions to report cards, fees to messaging —
         Everidemy handles it all.
       </p>
+      <div class="mt-8 flex flex-col sm:flex-row gap-3">
+        <a href="{{ url_for('auth.signup') }}"
+           class="inline-flex justify-center items-center px-6 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold shadow-lg shadow-brand-600/20 transition">
+          Get started →
+        </a>
+        <a href="{{ url_for('main.pricing') }}"
+           class="inline-flex justify-center items-center px-6 py-3 rounded-xl bg-white border border-slate-200 hover:border-slate-300 font-semibold text-slate-700 transition">
+          See pricing
+        </a>
+      </div>
     </div>
   </div>
 </section>
 
-<!-- ── Feature grid ───────────────────────────────────── -->
+<!-- Feature grid -->
 <section class="py-16 bg-slate-50">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -67,22 +77,38 @@
         </div>
       {% endfor %}
     </div>
+
+    <div class="mt-10 rounded-2xl bg-white border border-slate-100 p-5 flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-green-50 grid place-items-center text-green-600 text-sm" aria-hidden="true">✓</div>
+      <p class="text-sm text-slate-600">
+        <span class="font-semibold text-slate-800">Included in every plan.</span>
+        No feature tiers, no add-ons — one subscription covers it all.
+      </p>
+    </div>
   </div>
 </section>
 
-<!-- ── CTA ────────────────────────────────────────────── -->
+<!-- CTA -->
 <section class="py-24 bg-ink-900 text-white">
   <div class="max-w-4xl mx-auto px-4 text-center">
     <h2 class="text-3xl sm:text-4xl font-extrabold">Ready to get started?</h2>
     <p class="mt-4 text-slate-300">
       Subscribe in minutes. No setup fees, cancel anytime.
     </p>
-    <a href="{{ url_for('auth.signup') }}"
-       class="mt-8 inline-flex items-center px-6 py-3 rounded-xl
-              bg-white text-ink-900 font-semibold
-              hover:bg-slate-100 transition">
-      Get started →
-    </a>
+    <div class="mt-8 flex flex-col sm:flex-row justify-center gap-3">
+      <a href="{{ url_for('auth.signup') }}"
+         class="inline-flex justify-center items-center px-6 py-3 rounded-xl
+                bg-white text-ink-900 font-semibold
+                hover:bg-slate-100 transition">
+        Get started →
+      </a>
+      <a href="{{ url_for('main.pricing') }}"
+         class="inline-flex justify-center items-center px-6 py-3 rounded-xl
+                border border-white/20 text-white font-semibold
+                hover:bg-white/10 transition">
+        View pricing
+      </a>
+    </div>
   </div>
 </section>
 

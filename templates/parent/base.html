@@ -4,7 +4,7 @@
 {% block body %}
 
 <div class="flex min-h-screen bg-slate-50">
-('parent.announcements_page', 'megaphone', 'Announcements'),
+
   <!-- =========================================================
        MOBILE OVERLAY
        ========================================================= -->
@@ -25,7 +25,7 @@
     <div class="h-16 flex items-center px-5 border-b border-slate-100 shrink-0 gap-3">
       <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700
                   grid place-items-center text-white font-extrabold text-sm shrink-0">
-        {{ g.school.name[:1]|upper if g.school else 'P' }}
+        {{ g.school.name[:1]|upper if g.school and g.school.name else 'P' }}
       </div>
       <div class="min-w-0 flex-1">
         <p class="font-bold text-sm truncate" title="{{ g.school.name if g.school else '' }}">
@@ -34,7 +34,8 @@
         <p class="text-[10px] text-slate-500 uppercase tracking-wide">Parent Portal</p>
       </div>
       <button onclick="closeDrawer()"
-              class="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-500">
+              class="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-500"
+              aria-label="Close menu">
         {{ icon('x') }}
       </button>
     </div>
@@ -45,7 +46,7 @@
                   border border-brand-100 p-3 flex items-center gap-3">
         <div class="w-10 h-10 rounded-full bg-gradient-to-br from-brand-500 to-brand-700
                     grid place-items-center text-white font-bold text-sm shrink-0">
-          {{ g.user.name[:2]|upper if g.user else 'P' }}
+          {{ (g.user.name or 'P')[:2]|upper if g.user else 'P' }}
         </div>
         <div class="min-w-0 flex-1">
           <p class="text-sm font-semibold truncate">{{ g.user.name if g.user else '' }}</p>
@@ -59,11 +60,12 @@
 
     <!-- Navigation -->
     {% set nav = [
-      ('parent.dashboard',      'grid',    'Dashboard'),
-      ('parent.messages_page',  'chat',    'Messages'),
+      ('parent.dashboard',          'grid',      'Dashboard'),
+      ('parent.messages_page',      'chat',      'Messages'),
+      ('parent.announcements_page', 'megaphone', 'Announcements'),
     ] %}
 
-    <nav class="flex-1 px-3 py-2 overflow-y-auto space-y-1">
+    <nav class="flex-1 px-3 py-2 overflow-y-auto space-y-1" aria-label="Parent portal">
       {% for endpoint, icon_name, label in nav %}
         {% set is_active = request.endpoint == endpoint %}
         <a href="{{ url_for(endpoint) }}"
@@ -94,7 +96,7 @@
                class="group flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-slate-50 transition">
               <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-400 to-brand-600
                           grid place-items-center text-white font-bold text-[11px] shrink-0">
-                {{ c.first_name[:1]|upper }}{{ c.last_name[:1]|upper if c.last_name }}
+                {{ (c.first_name or '?')[:1]|upper }}{{ (c.last_name or '')[:1]|upper }}
               </div>
               <div class="flex-1 min-w-0">
                 <p class="text-xs font-semibold truncate">{{ c.first_name }} {{ c.last_name }}</p>
@@ -102,7 +104,7 @@
                   <p class="text-[10px] text-slate-500 truncate">{{ c._class.name }}</p>
                 {% endif %}
               </div>
-              {% if c._balance is defined and c._balance > 0 %}
+              {% if c._balance is defined and c._balance and c._balance > 0 %}
                 <span class="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" title="Outstanding balance"></span>
               {% endif %}
             </a>
@@ -152,7 +154,8 @@
                    border-b border-slate-100 flex items-center px-4 sm:px-6 gap-3 shrink-0">
 
       <button onclick="openDrawer()"
-              class="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-700">
+              class="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-700"
+              aria-label="Open menu">
         {{ icon('menu') }}
       </button>
 
@@ -179,7 +182,8 @@
       <!-- Notifications -->
       <div class="relative" data-dropdown="notifications">
         <button onclick="toggleDropdown('notifications')"
-                class="relative p-2 rounded-lg hover:bg-slate-100 text-slate-700">
+                class="relative p-2 rounded-lg hover:bg-slate-100 text-slate-700"
+                aria-label="Notifications">
           {{ icon('bell') }}
           {% if unread_messages and unread_messages > 0 %}
             <span class="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full
@@ -211,9 +215,9 @@
               </a>
             {% endif %}
 
-            {% if children is defined %}
+            {% if children is defined and children %}
               {% for c in children %}
-                {% if c._balance is defined and c._balance > 0 %}
+                {% if c._balance is defined and c._balance and c._balance > 0 %}
                   <a href="{{ url_for('parent.child_detail', student_id=c._id, tab='fees') }}"
                      class="flex gap-3 px-4 py-3 hover:bg-slate-50">
                     <div class="w-9 h-9 rounded-lg bg-amber-100 grid place-items-center text-amber-700 shrink-0">💳</div>
@@ -226,10 +230,10 @@
               {% endfor %}
             {% endif %}
 
-            {% if (not unread_messages or unread_messages == 0) and (
-                  (not children is defined) or
-                  (children | selectattr('_balance', 'defined') | selectattr('_balance', 'gt', 0) | list | length == 0)
-               ) %}
+            {% set has_unread = unread_messages and unread_messages > 0 %}
+            {% set has_balances = children is defined and children and
+                                  (children | selectattr('_balance', 'gt', 0) | list | length > 0) %}
+            {% if not has_unread and not has_balances %}
               <div class="px-4 py-10 text-center text-sm text-slate-500">
                 You're all caught up 🎉
               </div>
@@ -248,10 +252,11 @@
       <!-- Topbar user dropdown -->
       <div class="relative hidden sm:block" data-dropdown="topbar-user">
         <button onclick="toggleDropdown('topbar-user')"
-                class="flex items-center gap-2 p-1 pr-2 rounded-lg hover:bg-slate-100">
+                class="flex items-center gap-2 p-1 pr-2 rounded-lg hover:bg-slate-100"
+                aria-label="Account menu">
           <div class="w-8 h-8 rounded-full bg-gradient-to-br from-brand-500 to-brand-700
                       grid place-items-center text-white text-xs font-bold">
-            {{ g.user.name[:2]|upper if g.user else 'P' }}
+            {{ (g.user.name or 'P')[:2]|upper if g.user else 'P' }}
           </div>
           <span class="text-slate-400">{{ icon('chevron-down') }}</span>
         </button>
@@ -288,10 +293,10 @@
     <!-- Footer -->
     <footer class="border-t border-slate-100 px-4 sm:px-6 py-4 text-xs text-slate-500
                    flex flex-col sm:flex-row gap-2 items-center justify-between shrink-0 bg-white">
-      <p>© 2025 {{ platform_name }} · Parent portal</p>
+      <p>© {{ now.year }} {{ platform_name }} · Parent portal</p>
       <p class="flex items-center gap-3">
-        <a href="#" class="hover:text-brand-600">Help</a>
-        <a href="#" class="hover:text-brand-600">Privacy</a>
+        <a href="{{ url_for('main.contact') }}" class="hover:text-brand-600">Help</a>
+        <a href="{{ url_for('main.contact') }}#privacy" class="hover:text-brand-600">Privacy</a>
       </p>
     </footer>
   </div>
@@ -317,6 +322,7 @@ function closeDrawer() {
 /* ============ Dropdowns ============ */
 function toggleDropdown(id) {
   const menu = document.querySelector(`[data-dropdown-menu="${id}"]`);
+  if (!menu) return;
   const isOpen = !menu.classList.contains('hidden');
   document.querySelectorAll('[data-dropdown-menu]').forEach(m => m.classList.add('hidden'));
   if (!isOpen) menu.classList.remove('hidden');
@@ -333,12 +339,13 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-/* ============ Live clock ============ */
+/* ============ Live clock (Accra time) ============ */
 function tick() {
   const el = document.getElementById('live-clock');
   if (!el) return;
   const d = new Date();
   el.textContent = d.toLocaleString('en-GB', {
+    timeZone: 'Africa/Accra',
     weekday: 'short', day: '2-digit', month: 'short',
     hour: '2-digit', minute: '2-digit'
   });
@@ -352,5 +359,4 @@ window.addEventListener('resize', () => {
 });
 </script>
 
-{% block scripts %}{% endblock %}
 {% endblock %}

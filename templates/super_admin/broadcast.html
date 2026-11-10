@@ -9,38 +9,45 @@
 
     <form method="POST" class="mt-6 space-y-4">
       <div>
-        <label class="text-sm font-semibold text-slate-700">Audience</label>
-        <select name="audience" class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none">
-          <option value="all">All schools</option>
-          <option value="active">Active subscriptions only</option>
-          <option value="trialing">Trialing schools only</option>
+        <label for="audience" class="text-sm font-semibold text-slate-700">Audience</label>
+        <select id="audience" name="audience"
+                class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none bg-white">
+          {% set _aud = request.form.get('audience', 'all') if request is defined else 'all' %}
+          <option value="all"      {{ 'selected' if _aud == 'all' }}>All schools</option>
+          <option value="active"   {{ 'selected' if _aud == 'active' }}>Active subscriptions only</option>
+          <option value="trialing" {{ 'selected' if _aud == 'trialing' }}>Trialing schools only</option>
         </select>
       </div>
       <div>
-        <label class="text-sm font-semibold text-slate-700">Message</label>
-        <textarea name="message" rows="6" required
+        <label for="message" class="text-sm font-semibold text-slate-700">Message</label>
+        <textarea id="message" name="message" rows="6" required
                   class="mt-2 w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none"
-                  placeholder="What do you want to broadcast?"></textarea>
+                  placeholder="What do you want to broadcast?">{{ request.form.get('message', '') if request is defined else '' }}</textarea>
       </div>
       <label class="flex items-center gap-2 text-sm text-slate-700">
         <input type="checkbox" name="also_email" checked
                class="rounded border-slate-300 text-brand-600 focus:ring-brand-500">
         Also send as email to each school admin
       </label>
-      <button class="px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold">Send broadcast</button>
+      <button class="px-5 py-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-semibold">
+        Send broadcast
+      </button>
     </form>
   </div>
 
   <div class="bg-white rounded-2xl border border-slate-100 p-6">
     <h2 class="font-bold">Recent broadcasts</h2>
     <ul class="mt-4 divide-y divide-slate-100 text-sm">
-      {% for a in recent %}
-      <li class="py-3">
-        <p class="text-xs text-slate-500">{{ a.created_at.strftime('%b %d, %Y · %H:%M') }} · audience: {{ a.audience }}</p>
-        <p class="mt-1 whitespace-pre-wrap">{{ a.body }}</p>
-      </li>
+      {% for a in recent if recent is defined and recent %}
+        <li class="py-3">
+          <p class="text-xs text-slate-500">
+            {{ a.created_at.strftime('%b %d, %Y · %H:%M') if a.created_at else '—' }}
+            · audience: {{ a.audience or '—' }}
+          </p>
+          <p class="mt-1 whitespace-pre-wrap">{{ a.body or '' }}</p>
+        </li>
       {% else %}
-      <li class="py-6 text-center text-slate-500">No broadcasts yet.</li>
+        <li class="py-6 text-center text-slate-500">No broadcasts yet.</li>
       {% endfor %}
     </ul>
   </div>

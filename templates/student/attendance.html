@@ -4,22 +4,34 @@
 
 {% block content %}
 
-<div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+{% set _c = counts if counts is defined and counts else {} %}
+{% set _p = _c.get('present', 0) if _c.get is defined else (_c.present if _c.present is defined else 0) %}
+{% set _a = _c.get('absent',  0) if _c.get is defined else (_c.absent  if _c.absent  is defined else 0) %}
+{% set _l = _c.get('late',    0) if _c.get is defined else (_c.late    if _c.late    is defined else 0) %}
+{% set _e = _c.get('excused', 0) if _c.get is defined else (_c.excused if _c.excused is defined else 0) %}
+{% set _pct = pct if pct is defined and pct is not none else 0 %}
+{% set _recent = recent if recent is defined and recent else [] %}
+
+<div class="grid grid-cols-2 sm:grid-cols-5 gap-4">
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-green-700">Present</p>
-    <p class="mt-2 text-3xl font-extrabold text-green-600">{{ counts.present }}</p>
+    <p class="mt-2 text-3xl font-extrabold text-green-600">{{ _p }}</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-red-700">Absent</p>
-    <p class="mt-2 text-3xl font-extrabold text-red-600">{{ counts.absent }}</p>
+    <p class="mt-2 text-3xl font-extrabold text-red-600">{{ _a }}</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-amber-700">Late</p>
-    <p class="mt-2 text-3xl font-extrabold text-amber-600">{{ counts.late }}</p>
+    <p class="mt-2 text-3xl font-extrabold text-amber-600">{{ _l }}</p>
+  </div>
+  <div class="bg-white rounded-2xl p-5 border border-slate-100">
+    <p class="text-xs uppercase font-semibold text-blue-700">Excused</p>
+    <p class="mt-2 text-3xl font-extrabold text-blue-600">{{ _e }}</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Overall</p>
-    <p class="mt-2 text-3xl font-extrabold">{{ pct }}%</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ _pct }}%</p>
   </div>
 </div>
 
@@ -27,9 +39,9 @@
   <div class="p-5 border-b border-slate-100">
     <h2 class="font-bold">Last 60 sessions</h2>
   </div>
-  {% if recent %}
+  {% if _recent %}
     <ul class="divide-y divide-slate-100 text-sm">
-      {% for r in recent %}
+      {% for r in _recent %}
         {% set cls = {
           'present': 'bg-green-100 text-green-700',
           'absent':  'bg-red-100 text-red-700',
@@ -37,8 +49,8 @@
           'excused': 'bg-blue-100 text-blue-700',
         }.get(r.status, 'bg-slate-100 text-slate-700') %}
         <li class="px-5 py-3 flex items-center justify-between">
-          <span>{{ r.date.strftime('%a, %b %d, %Y') }}</span>
-          <span class="text-xs font-semibold px-2 py-1 rounded {{ cls }}">{{ r.status|capitalize }}</span>
+          <span>{{ r.date.strftime('%a, %b %d, %Y') if r.date else '—' }}</span>
+          <span class="text-xs font-semibold px-2 py-1 rounded {{ cls }}">{{ (r.status or 'unknown')|capitalize }}</span>
         </li>
       {% endfor %}
     </ul>

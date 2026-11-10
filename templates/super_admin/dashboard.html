@@ -3,40 +3,44 @@
 
 {% block content %}
 
+{% set _m = metrics if metrics is defined and metrics else {} %}
+{% set _active_schools = _m.get('active_schools', 0) if _m.get is defined else (_m.active_schools if _m.active_schools is defined else 0) or 0 %}
+{% set _trialing       = _m.get('trialing', 0)       if _m.get is defined else (_m.trialing       if _m.trialing       is defined else 0) or 0 %}
+{% set _suspended      = _m.get('suspended', 0)      if _m.get is defined else (_m.suspended      if _m.suspended      is defined else 0) or 0 %}
+{% set _mrr            = _m.get('mrr', 0)            if _m.get is defined else (_m.mrr            if _m.mrr            is defined else 0) or 0 %}
+{% set _total_students = _m.get('total_students', 0) if _m.get is defined else (_m.total_students if _m.total_students is defined else 0) or 0 %}
+{% set _total_schools  = _m.get('total_schools', 0)  if _m.get is defined else (_m.total_schools  if _m.total_schools  is defined else 0) or 0 %}
+{% set _open_tickets   = _m.get('open_tickets', 0)   if _m.get is defined else (_m.open_tickets   if _m.open_tickets   is defined else 0) or 0 %}
+
 <!-- =========================
      KPI CARDS
      ========================= -->
 <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
 
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
-    <p class="text-xs uppercase font-semibold text-slate-500">Active Schools</p>
-    <p class="mt-2 text-3xl font-extrabold">{{ metrics.active_schools if metrics else 0 }}</p>
+    <p class="text-xs uppercase font-semibold text-slate-500">Active schools</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ _active_schools }}</p>
     <p class="mt-1 text-xs text-green-600 font-semibold">
-      {{ metrics.trialing if metrics else 0 }} trialing ·
-      {{ metrics.suspended if metrics else 0 }} suspended
+      {{ _trialing }} trialing · {{ _suspended }} suspended
     </p>
   </div>
 
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">MRR</p>
-    <p class="mt-2 text-3xl font-extrabold">{{ format_money(metrics.mrr if metrics else 0) }}</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ format_money(_mrr) }}</p>
     <p class="mt-1 text-xs text-slate-500">Monthly recurring revenue</p>
   </div>
 
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
-    <p class="text-xs uppercase font-semibold text-slate-500">Total Students</p>
-    <p class="mt-2 text-3xl font-extrabold">
-      {{ '{:,}'.format(metrics.total_students) if metrics else '0' }}
-    </p>
+    <p class="text-xs uppercase font-semibold text-slate-500">Total students</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ '{:,}'.format(_total_students) }}</p>
     <p class="mt-1 text-xs text-slate-500">Across all tenants</p>
   </div>
 
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
-    <p class="text-xs uppercase font-semibold text-slate-500">Total Schools</p>
-    <p class="mt-2 text-3xl font-extrabold">{{ metrics.total_schools if metrics else 0 }}</p>
-    <p class="mt-1 text-xs text-slate-500">
-      {{ metrics.open_tickets if metrics else 0 }} open tickets
-    </p>
+    <p class="text-xs uppercase font-semibold text-slate-500">Total schools</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ _total_schools }}</p>
+    <p class="mt-1 text-xs text-slate-500">{{ _open_tickets }} open tickets</p>
   </div>
 </div>
 
@@ -48,14 +52,16 @@
 
   <!-- Revenue chart -->
   <div class="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-100">
-    <div class="flex justify-between items-center">
-      <h2 class="font-bold">Revenue growth</h2>
-      <select class="text-sm border border-slate-200 rounded-lg px-2 py-1">
-        <option>Last 6 months</option>
-      </select>
+    <div class="flex justify-between items-center flex-wrap gap-3">
+      <div>
+        <h2 class="font-bold">Revenue growth</h2>
+        <p class="text-xs text-slate-500 mt-0.5">Illustrative — real chart coming soon</p>
+      </div>
+      <span class="text-xs text-slate-400 border border-slate-200 rounded-lg px-2 py-1">Last 6 months</span>
     </div>
 
-    <svg viewBox="0 0 600 200" class="mt-6 w-full h-56">
+    <svg viewBox="0 0 600 200" class="mt-6 w-full h-56" preserveAspectRatio="none" role="img"
+         aria-label="Revenue trend placeholder">
       <defs>
         <linearGradient id="grad" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0%" stop-color="#3454f5" stop-opacity="0.35"/>
@@ -90,19 +96,20 @@
     </div>
 
     <ul class="mt-4 space-y-4 text-sm">
-      {% for s in recent_schools %}
+      {% for s in recent_schools if recent_schools is defined and recent_schools %}
         <li class="flex items-center gap-3">
-          <div class="w-9 h-9 rounded-lg bg-brand-100 grid place-items-center text-brand-700 font-bold text-xs">
-            {{ s.name[:2]|upper }}
+          <div class="w-9 h-9 rounded-lg bg-brand-100 grid place-items-center text-brand-700 font-bold text-xs shrink-0"
+               aria-hidden="true">
+            {{ ((s.name or '?')[:2])|upper }}
           </div>
           <div class="flex-1 min-w-0">
-            <p class="font-semibold truncate">{{ s.name }}</p>
+            <p class="font-semibold truncate">{{ s.name or 'Untitled' }}</p>
             {% if s.phone %}
               <p class="text-xs text-slate-500 truncate">{{ s.phone }}</p>
             {% endif %}
           </div>
           <a href="{{ url_for('super_admin.school_detail', school_id=s._id) }}"
-             class="text-brand-600 text-xs font-semibold hover:underline">View</a>
+             class="text-brand-600 text-xs font-semibold hover:underline shrink-0">View</a>
         </li>
       {% else %}
         <li class="text-slate-500">
@@ -127,14 +134,14 @@
   </div>
 
   <ul class="divide-y divide-slate-100 text-sm">
-    {% for log in activity %}
+    {% for log in activity if activity is defined and activity %}
       <li class="px-5 py-4 flex items-center gap-4">
         <span class="text-xs font-mono px-2 py-1 rounded bg-slate-100 text-slate-700 whitespace-nowrap">
-          {{ log.action }}
+          {{ log.action or '—' }}
         </span>
 
         <span class="text-slate-600 flex-1 truncate">
-          {% if log.meta %}
+          {% if log.meta and log.meta.items is defined %}
             {% for k, v in log.meta.items() %}
               <span class="text-slate-400">{{ k }}:</span> {{ v }}{% if not loop.last %} · {% endif %}
             {% endfor %}
@@ -144,7 +151,7 @@
         </span>
 
         <span class="text-xs text-slate-400 whitespace-nowrap">
-          {{ log.timestamp.strftime('%b %d · %H:%M') }}
+          {{ log.timestamp.strftime('%b %d · %H:%M') if log.timestamp else '' }}
         </span>
       </li>
     {% else %}

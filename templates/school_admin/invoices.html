@@ -7,57 +7,75 @@
 
 {% block content %}
 
+{# Safe defaults #}
+{% set _stats = stats if stats is defined and stats else {} %}
+{% set _s_total   = _stats.get('total', 0)   if _stats.get is defined else (_stats.total   if _stats.total   is defined else 0) %}
+{% set _s_paid    = _stats.get('paid', 0)    if _stats.get is defined else (_stats.paid    if _stats.paid    is defined else 0) %}
+{% set _s_partial = _stats.get('partial', 0) if _stats.get is defined else (_stats.partial if _stats.partial is defined else 0) %}
+{% set _s_unpaid  = _stats.get('unpaid', 0)  if _stats.get is defined else (_stats.unpaid  if _stats.unpaid  is defined else 0) %}
+{% set _term_label = dict(terms).get(term, term) if terms and term else (term or '') %}
+
 <a href="{{ url_for('school_admin.fees_page') }}"
    class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
   ← Back to fees
 </a>
 
+<!-- Summary -->
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Total</p>
-    <p class="mt-2 text-3xl font-extrabold">{{ stats.total }}</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ _s_total }}</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Paid</p>
-    <p class="mt-2 text-3xl font-extrabold text-green-600">{{ stats.paid }}</p>
+    <p class="mt-2 text-3xl font-extrabold text-green-600">{{ _s_paid }}</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Partial</p>
-    <p class="mt-2 text-3xl font-extrabold text-amber-600">{{ stats.partial }}</p>
+    <p class="mt-2 text-3xl font-extrabold text-amber-600">{{ _s_partial }}</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Unpaid</p>
-    <p class="mt-2 text-3xl font-extrabold text-red-600">{{ stats.unpaid }}</p>
+    <p class="mt-2 text-3xl font-extrabold text-red-600">{{ _s_unpaid }}</p>
   </div>
 </div>
 
+<!-- List -->
 <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
+
+  <!-- Filter: hidden inputs INSIDE the form so they submit with the query -->
   <div class="p-5 border-b border-slate-100">
     <form method="GET" class="grid sm:grid-cols-5 gap-3">
-      <input type="text" name="q" value="{{ search }}" placeholder="Search invoice or student…"
+      <input type="hidden" name="term" value="{{ term }}">
+      <input type="hidden" name="academic_year" value="{{ academic_year }}">
+      <input type="text" name="q" value="{{ search or '' }}"
+             placeholder="Search invoice or student…"
+             aria-label="Search invoices"
              class="sm:col-span-2 px-3 py-2.5 text-sm rounded-lg border border-slate-200
                     focus:border-brand-500 outline-none">
-      <select name="status" class="px-3 py-2.5 text-sm rounded-lg border border-slate-200 focus:border-brand-500 outline-none bg-white">
+      <select name="status"
+              aria-label="Filter by status"
+              class="px-3 py-2.5 text-sm rounded-lg border border-slate-200 focus:border-brand-500 outline-none bg-white">
         <option value="">All statuses</option>
         <option value="paid"    {{ 'selected' if status == 'paid' }}>Paid</option>
         <option value="partial" {{ 'selected' if status == 'partial' }}>Partial</option>
         <option value="unpaid"  {{ 'selected' if status == 'unpaid' }}>Unpaid</option>
         <option value="waived"  {{ 'selected' if status == 'waived' }}>Waived</option>
       </select>
-      <select name="class_id" class="px-3 py-2.5 text-sm rounded-lg border border-slate-200 focus:border-brand-500 outline-none bg-white">
+      <select name="class_id"
+              aria-label="Filter by class"
+              class="px-3 py-2.5 text-sm rounded-lg border border-slate-200 focus:border-brand-500 outline-none bg-white">
         <option value="">All classes</option>
         {% for c in class_list %}
           <option value="{{ c._id }}" {{ 'selected' if class_f == c._id|string }}>{{ c.name }}</option>
         {% endfor %}
       </select>
-      <button class="px-4 py-2.5 text-sm font-semibold rounded-lg bg-slate-900 text-white">
+      <button class="px-4 py-2.5 text-sm font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white">
         Filter
       </button>
     </form>
-    <input type="hidden" name="term" value="{{ term }}">
-    <input type="hidden" name="academic_year" value="{{ academic_year }}">
     <p class="mt-3 text-xs text-slate-500">
-      Showing {{ dict(terms)[term] }} · {{ academic_year }}
+      Showing {{ _term_label }} · {{ academic_year or '' }}
     </p>
   </div>
 
@@ -72,32 +90,33 @@
           <th class="text-right px-5 py-3 font-semibold">Paid</th>
           <th class="text-right px-5 py-3 font-semibold">Balance</th>
           <th class="text-left px-5 py-3 font-semibold">Status</th>
-          <th class="text-right px-5 py-3 font-semibold"></th>
+          <th class="text-right px-5 py-3 font-semibold"><span class="sr-only">Actions</span></th>
         </tr>
       </thead>
       <tbody class="divide-y divide-slate-100">
         {% for inv in invoices %}
+          {% set bal = inv.balance if inv.balance is defined and inv.balance is not none else 0 %}
           <tr class="hover:bg-slate-50">
             <td class="px-5 py-4">
-              <code class="text-xs bg-slate-100 px-2 py-0.5 rounded">{{ inv.invoice_no }}</code>
+              <code class="text-xs bg-slate-100 px-2 py-0.5 rounded">{{ inv.invoice_no or '—' }}</code>
             </td>
             <td class="px-5 py-4">
               {% if inv._student %}
                 <a href="{{ url_for('school_admin.student_detail', student_id=inv._student._id, tab='fees') }}"
                    class="font-semibold hover:text-brand-600">
-                  {{ inv._student.last_name }} {{ inv._student.first_name }}
+                  {{ inv._student.last_name or '' }} {{ inv._student.first_name or '' }}
                 </a>
-                <p class="text-xs text-slate-500">{{ inv._student.admission_no }}</p>
+                <p class="text-xs text-slate-500">{{ inv._student.admission_no or '—' }}</p>
               {% else %}—{% endif %}
             </td>
             <td class="px-5 py-4 text-slate-600">
               {% if inv._class %}{{ inv._class.name }}{% else %}—{% endif %}
             </td>
-            <td class="px-5 py-4 text-right">{{ format_money(inv.amount_due) }}</td>
-            <td class="px-5 py-4 text-right text-green-700">{{ format_money(inv.amount_paid) }}</td>
+            <td class="px-5 py-4 text-right">{{ format_money(inv.amount_due or 0) }}</td>
+            <td class="px-5 py-4 text-right text-green-700">{{ format_money(inv.amount_paid or 0) }}</td>
             <td class="px-5 py-4 text-right font-semibold
-                       {{ 'text-red-600' if inv.balance > 0 else 'text-slate-400' }}">
-              {{ format_money(inv.balance) }}
+                       {{ 'text-red-600' if bal > 0 else 'text-slate-400' }}">
+              {{ format_money(bal) }}
             </td>
             <td class="px-5 py-4">
               {% if inv.status == 'paid' %}
@@ -118,7 +137,8 @@
         {% else %}
           <tr>
             <td colspan="8" class="px-5 py-16 text-center">
-              <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-50 grid place-items-center text-slate-400 text-2xl">📄</div>
+              <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-50 grid place-items-center text-slate-400 text-2xl"
+                   aria-hidden="true">📄</div>
               <p class="mt-4 font-semibold text-slate-700">No invoices match your filters</p>
               <p class="mt-1 text-sm text-slate-500">Try a different term or check back after generating invoices.</p>
             </td>
@@ -128,7 +148,7 @@
     </table>
   </div>
 
-  {% if total > per_page %}
+  {% if total is defined and per_page is defined and total > per_page %}
     {% set total_pages = ((total - 1) // per_page) + 1 %}
     <div class="p-5 flex items-center justify-between border-t border-slate-100 text-sm">
       <p class="text-slate-500">Page {{ page }} of {{ total_pages }}</p>

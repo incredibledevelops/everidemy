@@ -7,44 +7,57 @@
 
 {% block content %}
 
+{# Safe defaults #}
+{% set _stats = stats if stats is defined and stats else {} %}
+{% set _total_pay   = _stats.get('total_payments', 0) if _stats.get is defined else (_stats.total_payments if _stats.total_payments is defined else 0) %}
+{% set _today_count = _stats.get('today_count', 0)    if _stats.get is defined else (_stats.today_count    if _stats.today_count    is defined else 0) %}
+{% set _today_total = _stats.get('today_total', 0)    if _stats.get is defined else (_stats.today_total    if _stats.today_total    is defined else 0) %}
+{% set _today_avg   = (_today_total / _today_count) if _today_count else 0 %}
+
 <a href="{{ url_for('school_admin.fees_page') }}"
    class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-brand-600">
   ← Back to fees
 </a>
 
-<div class="grid grid-cols-3 gap-4">
+<!-- Summary -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">All-time payments</p>
-    <p class="mt-2 text-3xl font-extrabold">{{ stats.total_payments }}</p>
+    <p class="mt-2 text-3xl font-extrabold">{{ _total_pay }}</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Today</p>
-    <p class="mt-2 text-3xl font-extrabold text-brand-600">{{ stats.today_count }}</p>
-    <p class="mt-1 text-xs text-slate-500">{{ format_money(stats.today_total) }} collected</p>
+    <p class="mt-2 text-3xl font-extrabold text-brand-600">{{ _today_count }}</p>
+    <p class="mt-1 text-xs text-slate-500">{{ format_money(_today_total) }} collected</p>
   </div>
   <div class="bg-white rounded-2xl p-5 border border-slate-100">
     <p class="text-xs uppercase font-semibold text-slate-500">Avg per payment</p>
     <p class="mt-2 text-3xl font-extrabold text-emerald-600">
-      {{ format_money((stats.today_total // stats.today_count) if stats.today_count else 0) }}
+      {{ format_money(_today_avg) }}
     </p>
     <p class="mt-1 text-xs text-slate-500">Today</p>
   </div>
 </div>
 
+<!-- List -->
 <div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
   <div class="p-5 border-b border-slate-100">
     <form method="GET" class="grid sm:grid-cols-3 gap-3">
-      <input type="text" name="q" value="{{ search }}" placeholder="Search student, invoice…"
+      <input type="text" name="q" value="{{ search or '' }}"
+             placeholder="Search student, invoice…"
+             aria-label="Search payments"
              class="sm:col-span-2 px-3 py-2.5 text-sm rounded-lg border border-slate-200
                     focus:border-brand-500 outline-none">
-      <select name="channel" class="px-3 py-2.5 text-sm rounded-lg border border-slate-200
-                                    focus:border-brand-500 outline-none bg-white">
+      <select name="channel"
+              aria-label="Filter by channel"
+              class="px-3 py-2.5 text-sm rounded-lg border border-slate-200
+                     focus:border-brand-500 outline-none bg-white">
         <option value="">All channels</option>
         {% for key, label in channels %}
           <option value="{{ key }}" {{ 'selected' if channel == key }}>{{ label }}</option>
         {% endfor %}
       </select>
-      <button class="sm:col-span-3 px-4 py-2.5 text-sm font-semibold rounded-lg bg-slate-900 text-white">
+      <button class="sm:col-span-3 px-4 py-2.5 text-sm font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white">
         Filter
       </button>
     </form>
@@ -66,13 +79,13 @@
         {% for p in payments %}
           <tr class="hover:bg-slate-50">
             <td class="px-5 py-4 text-slate-500 whitespace-nowrap">
-              {{ p.paid_at.strftime('%b %d, %Y · %H:%M') if p.paid_at }}
+              {{ p.paid_at.strftime('%b %d, %Y · %H:%M') if p.paid_at else '—' }}
             </td>
             <td class="px-5 py-4 font-semibold">
               {% if p._student %}
                 <a href="{{ url_for('school_admin.student_detail', student_id=p._student._id, tab='fees') }}"
                    class="hover:text-brand-600">
-                  {{ p._student.last_name }} {{ p._student.first_name }}
+                  {{ p._student.last_name or '' }} {{ p._student.first_name or '' }}
                 </a>
               {% else %}—{% endif %}
             </td>
@@ -80,7 +93,7 @@
               {% if p._invoice %}
                 <a href="{{ url_for('school_admin.invoice_detail', invoice_id=p._invoice._id) }}"
                    class="hover:text-brand-600">
-                  <code class="text-xs bg-slate-100 px-2 py-0.5 rounded">{{ p._invoice.invoice_no }}</code>
+                  <code class="text-xs bg-slate-100 px-2 py-0.5 rounded">{{ p._invoice.invoice_no or '—' }}</code>
                 </a>
               {% else %}—{% endif %}
             </td>
@@ -89,20 +102,29 @@
                     {{ 'bg-emerald-50 text-emerald-700' if p.channel == 'paystack'
                        else 'bg-blue-50 text-blue-700' if p.channel == 'transfer'
                        else 'bg-slate-100 text-slate-700' }}">
-                {{ p.channel|capitalize }}
+                {{ (p.channel or '—')|capitalize }}
               </span>
             </td>
             <td class="px-5 py-4 text-slate-500 text-xs">{{ p.reference or '—' }}</td>
             <td class="px-5 py-4 text-right font-bold text-green-700 whitespace-nowrap">
-              {{ format_money(p.amount) }}
+              {{ format_money(p.amount or 0) }}
             </td>
           </tr>
         {% else %}
           <tr>
             <td colspan="6" class="px-5 py-16 text-center">
-              <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-50 grid place-items-center text-slate-400 text-2xl">💰</div>
-              <p class="mt-4 font-semibold text-slate-700">No payments yet</p>
-              <p class="mt-1 text-sm text-slate-500">Payments appear here as invoices are settled.</p>
+              <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-50 grid place-items-center text-slate-400 text-2xl"
+                   aria-hidden="true">💰</div>
+              <p class="mt-4 font-semibold text-slate-700">
+                {% if search or channel %}No payments match your filters{% else %}No payments yet{% endif %}
+              </p>
+              <p class="mt-1 text-sm text-slate-500">
+                {% if search or channel %}
+                  Try a different search or reset the filters.
+                {% else %}
+                  Payments appear here as invoices are settled.
+                {% endif %}
+              </p>
             </td>
           </tr>
         {% endfor %}
@@ -110,7 +132,7 @@
     </table>
   </div>
 
-  {% if total > per_page %}
+  {% if total is defined and per_page is defined and page is defined and total > per_page %}
     {% set total_pages = ((total - 1) // per_page) + 1 %}
     <div class="p-5 flex items-center justify-between border-t border-slate-100 text-sm">
       <p class="text-slate-500">Page {{ page }} of {{ total_pages }}</p>
