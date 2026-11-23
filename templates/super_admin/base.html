@@ -4,18 +4,37 @@
 
 {% block body %}
 
-{% set _user       = current_user if current_user is defined and current_user else g.get('user') %}
-{% set _user_name  = (_user.name if _user and _user.name else 'Super Admin') %}
-{% set _user_email = (_user.email if _user and _user.email else '') %}
-{% set _metrics    = metrics if metrics is defined and metrics else {} %}
+{% set _user         = current_user if current_user is defined and current_user else g.get('user') %}
+{% set _user_name    = (_user.name if _user and _user.name else 'Super Admin') %}
+{% set _user_email   = (_user.email if _user and _user.email else '') %}
+{% set _metrics      = metrics if metrics is defined and metrics else {} %}
 {% set _open_tickets = _metrics.get('open_tickets', 0) if _metrics.get is defined else (_metrics.open_tickets if _metrics.open_tickets is defined else 0) or 0 %}
-{% set _trialing   = _metrics.get('trialing', 0)   if _metrics.get is defined else (_metrics.trialing   if _metrics.trialing   is defined else 0) or 0 %}
-{% set _suspended  = _metrics.get('suspended', 0)  if _metrics.get is defined else (_metrics.suspended  if _metrics.suspended  is defined else 0) or 0 %}
-{% set _monthly    = plans.monthly.price if plans is defined and plans.monthly is defined else 0 %}
+{% set _trialing     = _metrics.get('trialing', 0)     if _metrics.get is defined else (_metrics.trialing     if _metrics.trialing     is defined else 0) or 0 %}
+{% set _suspended    = _metrics.get('suspended', 0)    if _metrics.get is defined else (_metrics.suspended    if _metrics.suspended    is defined else 0) or 0 %}
+{% set _monthly      = plans.monthly.price if plans is defined and plans.monthly is defined else 0 %}
 
-<div class="flex min-h-screen bg-slate-50">
+{% set nav_sections = [
+  ('Platform', [
+    ('super_admin.dashboard',          'grid',      'Dashboard',       'Platform overview, KPIs, and activity'),
+  ]),
+  ('Management', [
+    ('super_admin.schools_list',       'building',  'Schools',         'Browse and manage school tenants'),
+    ('super_admin.subscriptions_page', 'card',      'Subscriptions',   'Plans, billing status, and renewals'),
+    ('super_admin.revenue',            'chart',     'Revenue',         'MRR trends and payment analytics'),
+  ]),
+  ('Engagement', [
+    ('super_admin.tickets_page',       'ticket',    'Support tickets', 'Open tenant issues and requests'),
+    ('super_admin.broadcast',          'megaphone', 'Broadcast',       'Send announcements across schools'),
+  ]),
+  ('System', [
+    ('super_admin.audit_logs_page',    'history',   'Audit logs',      'Security and admin action history'),
+    ('super_admin.settings',           'cog',       'Settings',        'Platform configuration and pricing'),
+  ]),
+] %}
 
-  <!-- ========== MOBILE OVERLAY ========== -->
+<div class="flex min-h-screen bg-slate-50 text-slate-900">
+
+  <!-- ========== MOBILE DRAWER OVERLAY ========== -->
   <div id="drawer-overlay"
        onclick="closeDrawer()"
        class="fixed inset-0 z-30 bg-ink-900/60 backdrop-blur-sm hidden lg:hidden transition-opacity"
@@ -25,80 +44,62 @@
   <aside id="sidebar"
          class="fixed lg:sticky top-0 inset-y-0 left-0 z-40 w-72 bg-ink-900 text-white flex flex-col
                 -translate-x-full lg:translate-x-0 transition-transform duration-300 ease-out
-                h-screen"
+                h-screen border-r border-white/10"
          aria-label="Super admin navigation">
 
     <!-- Brand -->
     <div class="h-16 flex items-center px-5 border-b border-white/10 shrink-0">
-      <a href="{{ url_for('super_admin.dashboard') }}" class="flex items-center gap-2 min-w-0">
-        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 grid place-items-center font-extrabold text-white shadow-lg shadow-brand-500/30"
+      <a href="{{ url_for('super_admin.dashboard') }}" class="flex items-center gap-2.5 min-w-0 group">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 grid place-items-center font-extrabold text-white shadow-lg shadow-brand-500/30 group-hover:scale-105 transition-transform"
              aria-hidden="true">
           E
         </div>
         <div class="min-w-0">
-          <p class="font-extrabold leading-tight truncate">{{ platform_name }}</p>
+          <p class="font-extrabold leading-tight truncate text-white">{{ platform_name }}</p>
           <p class="text-[10px] uppercase tracking-widest text-brand-300 font-semibold">Super Admin</p>
         </div>
       </a>
-      <button type="button" onclick="closeDrawer()"
-              class="lg:hidden ml-auto p-2 rounded-lg hover:bg-white/10 text-slate-300"
+      <button type="button"
+              onclick="closeDrawer()"
+              class="lg:hidden ml-auto p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition cursor-pointer"
               aria-label="Close menu">
         {{ icon('x') }}
       </button>
     </div>
 
-    <!-- Search -->
-    <div class="px-4 py-4 shrink-0">
-      <div class="relative">
-        <input type="search"
-               id="global-search"
-               placeholder="Search…"
-               aria-label="Search"
-               class="w-full pl-10 pr-14 py-2.5 text-sm rounded-xl bg-white/5 border border-white/10 text-white placeholder:text-slate-400
-                      focus:bg-white/10 focus:border-brand-500/60 focus:ring-4 focus:ring-brand-500/10 outline-none transition">
-        <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true">
+    <!-- Search Trigger (Opens Command Palette on Click or Ctrl/Cmd+K) -->
+    <div class="px-4 py-3.5 shrink-0">
+      <button type="button"
+              id="global-search-trigger"
+              onclick="openCommandPalette()"
+              aria-label="Open search and navigation command palette"
+              class="w-full flex items-center gap-2.5 pl-3 pr-2.5 py-2.5 text-sm rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-400 hover:text-slate-200 transition cursor-pointer text-left">
+        <span class="text-slate-400 shrink-0" aria-hidden="true">
           {{ icon('search') }}
         </span>
-        <kbd class="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:block text-[10px] font-semibold text-slate-400 border border-white/10 rounded px-1.5 py-0.5">
+        <span class="flex-1 truncate text-xs sm:text-sm">Quick jump…</span>
+        <kbd class="hidden sm:inline-flex items-center text-[10px] font-semibold text-slate-300 bg-white/5 border border-white/15 rounded-md px-1.5 py-0.5">
           ⌘K
         </kbd>
-      </div>
+      </button>
     </div>
 
     <!-- Navigation -->
-    {% set nav_sections = [
-      ('Platform', [
-        ('super_admin.dashboard',          'grid',    'Dashboard'),
-      ]),
-      ('Management', [
-        ('super_admin.schools_list',       'building','Schools'),
-        ('super_admin.subscriptions_page', 'card',    'Subscriptions'),
-        ('super_admin.revenue',            'chart',   'Revenue'),
-      ]),
-      ('Engagement', [
-        ('super_admin.tickets_page',       'ticket',  'Support tickets'),
-        ('super_admin.broadcast',          'megaphone','Broadcast'),
-      ]),
-      ('System', [
-        ('super_admin.audit_logs_page',    'history', 'Audit logs'),
-        ('super_admin.settings',           'cog',     'Settings'),
-      ]),
-    ] %}
-
-    <nav class="flex-1 px-3 pb-4 overflow-y-auto space-y-6">
+    <nav class="flex-1 px-3 pb-4 overflow-y-auto space-y-5 scrollbar-thin" aria-label="Primary">
       {% for section_title, items in nav_sections %}
         <div>
-          <p class="px-3 mb-2 text-[10px] uppercase tracking-widest font-bold text-slate-500">
+          <p class="px-3 mb-1.5 text-[10px] uppercase tracking-widest font-bold text-slate-500">
             {{ section_title }}
           </p>
           <div class="space-y-0.5">
-            {% for endpoint, icon_name, label in items %}
+            {% for endpoint, icon_name, label, _desc in items %}
               {% set is_active = request.endpoint == endpoint %}
               <a href="{{ url_for(endpoint) }}"
+                 {% if is_active %}aria-current="page"{% endif %}
                  class="group relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition
-                        {{ 'bg-white/10 text-white font-semibold' if is_active else 'text-slate-300 hover:bg-white/5 hover:text-white' }}">
+                        {{ 'bg-white/10 text-white font-semibold shadow-xs' if is_active else 'text-slate-300 hover:bg-white/5 hover:text-white' }}">
                 {% if is_active %}
-                  <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-brand-500"
+                  <span class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full bg-brand-400"
                         aria-hidden="true"></span>
                 {% endif %}
                 <span class="shrink-0 w-5 h-5 grid place-items-center
@@ -107,7 +108,7 @@
                 </span>
                 <span class="truncate">{{ label }}</span>
                 {% if endpoint == 'super_admin.tickets_page' and _open_tickets > 0 %}
-                  <span class="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white">
+                  <span class="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500 text-white">
                     {{ _open_tickets }}
                   </span>
                 {% endif %}
@@ -118,55 +119,55 @@
       {% endfor %}
     </nav>
 
-    <!-- Pricing card -->
+    <!-- Pricing / Platform Plan Card -->
     <div class="px-3 pb-3 shrink-0">
-      <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 p-4">
+      <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-600 via-brand-700 to-brand-900 p-4 border border-white/10">
         <div class="absolute -right-6 -top-6 w-20 h-20 rounded-full bg-white/10 blur-xl" aria-hidden="true"></div>
-        <p class="relative text-[11px] uppercase tracking-widest text-brand-200 font-bold">Platform</p>
+        <p class="relative text-[10px] uppercase tracking-widest text-brand-200 font-bold">Platform Plan</p>
         <p class="relative mt-1 text-sm font-bold text-white leading-snug">
           {% if _monthly %}{{ format_money(_monthly) }} / month{% else %}View plan{% endif %}
         </p>
         <a href="{{ url_for('super_admin.settings') }}"
-           class="relative mt-3 inline-flex items-center gap-1 text-xs font-semibold text-white hover:underline">
+           class="relative mt-2.5 inline-flex items-center gap-1 text-xs font-semibold text-white hover:text-brand-100 hover:underline transition">
           Manage settings <span aria-hidden="true">→</span>
         </a>
       </div>
     </div>
 
-    <!-- User footer -->
+    <!-- Sidebar User Footer -->
     <div class="p-3 border-t border-white/10 shrink-0">
       <div class="relative" data-dropdown="sidebar-user">
         <button type="button"
-                onclick="toggleDropdown('sidebar-user')"
-                class="w-full flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-white/5 transition"
+                onclick="toggleDropdown('sidebar-user', this)"
+                class="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl hover:bg-white/5 transition cursor-pointer"
                 aria-haspopup="menu"
                 aria-expanded="false">
-          <div class="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 grid place-items-center text-sm font-bold shrink-0">
+          <div class="w-9 h-9 rounded-full bg-gradient-to-br from-brand-500 to-brand-700 grid place-items-center text-xs font-bold text-white shrink-0 ring-2 ring-white/10">
             {{ (_user_name)[:2]|upper }}
           </div>
           <div class="flex-1 min-w-0 text-left">
-            <p class="text-sm font-semibold truncate">{{ _user_name }}</p>
+            <p class="text-sm font-semibold text-white truncate">{{ _user_name }}</p>
             <p class="text-xs text-slate-400 truncate">{{ _user_email }}</p>
           </div>
           <span class="text-slate-400 shrink-0">{{ icon('chevron-up-down') }}</span>
         </button>
 
         <div data-dropdown-menu="sidebar-user"
-             class="hidden absolute left-0 right-0 bottom-full mb-2 rounded-xl bg-ink-900 border border-white/10 shadow-2xl overflow-hidden z-50"
+             class="hidden absolute left-0 right-0 bottom-full mb-2 rounded-xl bg-ink-900 border border-white/15 shadow-2xl overflow-hidden z-50"
              role="menu">
           <a href="{{ url_for('account.profile') }}"
-             class="flex items-center gap-2 px-3 py-2.5 text-sm text-slate-300 hover:bg-white/5"
+             class="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-slate-200 hover:bg-white/10 transition"
              role="menuitem">
             <span>{{ icon('user') }}</span> My profile
           </a>
           <a href="{{ url_for('super_admin.settings') }}"
-             class="flex items-center gap-2 px-3 py-2.5 text-sm text-slate-300 hover:bg-white/5"
+             class="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-slate-200 hover:bg-white/10 transition"
              role="menuitem">
             <span>{{ icon('cog') }}</span> Account settings
           </a>
           <div class="border-t border-white/10"></div>
           <a href="{{ url_for('auth.logout') }}"
-             class="flex items-center gap-2 px-3 py-2.5 text-sm text-red-400 hover:bg-red-500/10"
+             class="flex items-center gap-2.5 px-3.5 py-2.5 text-sm text-rose-400 hover:bg-rose-500/10 transition"
              role="menuitem">
             <span>{{ icon('logout') }}</span> Log out
           </a>
@@ -175,87 +176,93 @@
     </div>
   </aside>
 
-  <!-- ========== MAIN CONTENT ========== -->
+  <!-- ========== MAIN CONTENT AREA ========== -->
   <div class="flex-1 min-w-0 flex flex-col">
 
     <!-- Topbar -->
-    <header class="sticky top-0 z-20 h-16 bg-white/90 backdrop-blur border-b border-slate-100 flex items-center px-4 sm:px-6 gap-3 shrink-0">
-      <button type="button" onclick="openDrawer()"
-              class="lg:hidden p-2 rounded-lg hover:bg-slate-100 text-slate-700"
+    <header class="sticky top-0 z-20 h-16 bg-white/95 backdrop-blur border-b border-slate-200/70 flex items-center px-4 sm:px-6 gap-3 shrink-0">
+      <button type="button"
+              onclick="openDrawer()"
+              class="lg:hidden p-2 rounded-xl hover:bg-slate-100 text-slate-700 transition cursor-pointer"
               aria-label="Open menu">
         {{ icon('menu') }}
       </button>
 
       <div class="min-w-0 flex-1">
-        <h1 class="font-bold text-lg truncate">{% block page_title %}Super Admin{% endblock %}</h1>
-        <p class="hidden sm:flex items-center gap-1.5 text-xs text-slate-500">
-          <span>{{ platform_name }}</span>
-          <span class="text-slate-300">/</span>
+        <h1 class="font-bold text-base sm:text-lg text-slate-900 truncate leading-tight">
+          {% block page_title %}Super Admin{% endblock %}
+        </h1>
+        <nav aria-label="Breadcrumb" class="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
+          <a href="{{ url_for('super_admin.dashboard') }}" class="hover:text-brand-600 transition">{{ platform_name }}</a>
+          <span class="text-slate-300" aria-hidden="true">/</span>
           <span class="text-slate-700 font-semibold">{% block breadcrumb %}Overview{% endblock %}</span>
-        </p>
+        </nav>
       </div>
 
-      <div class="hidden md:flex items-center gap-2 text-xs text-slate-500 border border-slate-200 rounded-lg px-3 py-1.5">
-        <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" aria-hidden="true"></span>
+      <!-- Live Accra Clock Pill -->
+      <div class="hidden md:flex items-center gap-2 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200/80 rounded-xl px-3 py-1.5"
+           title="Platform time (Africa/Accra)">
+        <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true"></span>
         <span id="live-clock">—</span>
       </div>
 
+      <!-- Primary Quick Action -->
       <a href="{{ url_for('super_admin.school_new') }}"
-         class="hidden sm:inline-flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white text-sm font-semibold px-3.5 py-2 rounded-lg transition shadow-sm">
+         class="inline-flex items-center gap-1.5 bg-brand-600 hover:bg-brand-700 text-white text-xs sm:text-sm font-semibold px-3 sm:px-3.5 py-2 rounded-xl transition shadow-xs">
         {{ icon('plus') }}
-        <span class="hidden md:inline">Add school</span>
+        <span class="hidden sm:inline">Add school</span>
       </a>
 
-      <!-- Notifications -->
+      <!-- Notifications Dropdown -->
       <div class="relative" data-dropdown="notifications">
         <button type="button"
-                onclick="toggleDropdown('notifications')"
-                class="relative p-2 rounded-lg hover:bg-slate-100 text-slate-700"
+                onclick="toggleDropdown('notifications', this)"
+                class="relative p-2 rounded-xl hover:bg-slate-100 text-slate-700 transition cursor-pointer"
                 aria-label="Notifications"
                 aria-haspopup="menu"
                 aria-expanded="false">
           {{ icon('bell') }}
           {% if _open_tickets > 0 %}
-            <span class="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold grid place-items-center">
+            <span class="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold grid place-items-center">
               {{ _open_tickets }}
             </span>
           {% endif %}
         </button>
 
         <div data-dropdown-menu="notifications"
-             class="hidden absolute right-0 mt-2 w-80 rounded-2xl bg-white border border-slate-100 shadow-2xl overflow-hidden z-50"
+             class="hidden absolute right-0 mt-2 w-80 rounded-2xl bg-white border border-slate-200/80 shadow-2xl overflow-hidden z-50"
              role="menu">
-          <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-            <p class="font-bold text-sm">Notifications</p>
+          <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <p class="font-bold text-sm text-slate-900">Notifications</p>
             {% if _open_tickets > 0 %}
-              <span class="text-xs font-semibold text-brand-600">{{ _open_tickets }} new</span>
+              <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600">{{ _open_tickets }} open</span>
             {% endif %}
           </div>
           <div class="max-h-80 overflow-y-auto divide-y divide-slate-100">
             {% if _open_tickets > 0 %}
-              <a href="{{ url_for('super_admin.tickets_page') }}" class="flex gap-3 px-4 py-3 hover:bg-slate-50" role="menuitem">
-                <div class="w-9 h-9 rounded-lg bg-amber-100 grid place-items-center text-amber-700 shrink-0" aria-hidden="true">🎫</div>
+              <a href="{{ url_for('super_admin.tickets_page') }}" class="flex gap-3 px-4 py-3 hover:bg-slate-50 transition" role="menuitem">
+                <div class="w-9 h-9 rounded-xl bg-amber-100 grid place-items-center text-amber-700 shrink-0" aria-hidden="true">🎫</div>
                 <div class="min-w-0">
-                  <p class="text-sm font-semibold">{{ _open_tickets }} open support tickets</p>
+                  <p class="text-sm font-semibold text-slate-900">{{ _open_tickets }} open support ticket{{ 's' if _open_tickets != 1 else '' }}</p>
                   <p class="text-xs text-slate-500 truncate">Schools are awaiting a reply.</p>
                 </div>
               </a>
             {% endif %}
             {% if _trialing > 0 %}
-              <a href="{{ url_for('super_admin.schools_list', status='trialing') }}" class="flex gap-3 px-4 py-3 hover:bg-slate-50" role="menuitem">
-                <div class="w-9 h-9 rounded-lg bg-brand-100 grid place-items-center text-brand-700 shrink-0" aria-hidden="true">⏳</div>
+              <a href="{{ url_for('super_admin.schools_list', status='trialing') }}" class="flex gap-3 px-4 py-3 hover:bg-slate-50 transition" role="menuitem">
+                <div class="w-9 h-9 rounded-xl bg-brand-100 grid place-items-center text-brand-700 shrink-0" aria-hidden="true">⏳</div>
                 <div class="min-w-0">
-                  <p class="text-sm font-semibold">{{ _trialing }} schools on trial</p>
-                  <p class="text-xs text-slate-500 truncate">Follow up before they expire.</p>
+                  <p class="text-sm font-semibold text-slate-900">{{ _trialing }} school{{ 's' if _trialing != 1 else '' }} on trial</p>
+                  <p class="text-xs text-slate-500 truncate">Follow up before trials expire.</p>
                 </div>
               </a>
             {% endif %}
             {% if _suspended > 0 %}
-              <a href="{{ url_for('super_admin.schools_list') }}" class="flex gap-3 px-4 py-3 hover:bg-slate-50" role="menuitem">
-                <div class="w-9 h-9 rounded-lg bg-red-100 grid place-items-center text-red-700 shrink-0" aria-hidden="true">🚫</div>
+              <a href="{{ url_for('super_admin.schools_list') }}" class="flex gap-3 px-4 py-3 hover:bg-slate-50 transition" role="menuitem">
+                <div class="w-9 h-9 rounded-xl bg-rose-100 grid place-items-center text-rose-700 shrink-0" aria-hidden="true">🚫</div>
                 <div class="min-w-0">
-                  <p class="text-sm font-semibold">{{ _suspended }} suspended schools</p>
-                  <p class="text-xs text-slate-500 truncate">Review suspensions.</p>
+                  <p class="text-sm font-semibold text-slate-900">{{ _suspended }} suspended school{{ 's' if _suspended != 1 else '' }}</p>
+                  <p class="text-xs text-slate-500 truncate">Review account suspensions.</p>
                 </div>
               </a>
             {% endif %}
@@ -263,21 +270,21 @@
               <div class="px-4 py-10 text-center text-sm text-slate-500">You're all caught up 🎉</div>
             {% endif %}
           </div>
-          <div class="border-t border-slate-100">
+          <div class="border-t border-slate-100 bg-slate-50/50">
             <a href="{{ url_for('super_admin.audit_logs_page') }}"
-               class="block px-4 py-3 text-center text-sm font-semibold text-brand-600 hover:bg-slate-50"
+               class="block px-4 py-2.5 text-center text-xs font-semibold text-brand-600 hover:text-brand-700 hover:bg-slate-100/60 transition"
                role="menuitem">
-              View all activity
+              View all audit activity →
             </a>
           </div>
         </div>
       </div>
 
-      <!-- Topbar user -->
+      <!-- Topbar User Dropdown -->
       <div class="relative hidden sm:block" data-dropdown="topbar-user">
         <button type="button"
-                onclick="toggleDropdown('topbar-user')"
-                class="flex items-center gap-2 p-1 pr-2 rounded-lg hover:bg-slate-100"
+                onclick="toggleDropdown('topbar-user', this)"
+                class="flex items-center gap-2 p-1 pr-2 rounded-xl hover:bg-slate-100 transition cursor-pointer"
                 aria-label="Account menu"
                 aria-haspopup="menu"
                 aria-expanded="false">
@@ -288,25 +295,25 @@
         </button>
 
         <div data-dropdown-menu="topbar-user"
-             class="hidden absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-slate-100 shadow-2xl overflow-hidden z-50"
+             class="hidden absolute right-0 mt-2 w-56 rounded-2xl bg-white border border-slate-200/80 shadow-2xl overflow-hidden z-50"
              role="menu">
-          <div class="px-4 py-3 border-b border-slate-100">
-            <p class="text-sm font-semibold truncate">{{ _user_name }}</p>
+          <div class="px-4 py-3 border-b border-slate-100 bg-slate-50/50">
+            <p class="text-sm font-semibold text-slate-900 truncate">{{ _user_name }}</p>
             <p class="text-xs text-slate-500 truncate">{{ _user_email }}</p>
           </div>
           <a href="{{ url_for('account.profile') }}"
-             class="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+             class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition"
              role="menuitem">
             {{ icon('user') }} My profile
           </a>
           <a href="{{ url_for('super_admin.settings') }}"
-             class="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50"
+             class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 transition"
              role="menuitem">
             {{ icon('cog') }} Account settings
           </a>
           <div class="border-t border-slate-100"></div>
           <a href="{{ url_for('auth.logout') }}"
-             class="flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50"
+             class="flex items-center gap-2.5 px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 transition"
              role="menuitem">
             {{ icon('logout') }} Log out
           </a>
@@ -314,20 +321,100 @@
       </div>
     </header>
 
-    <!-- Page content -->
+    <!-- Main Page Content -->
     <main class="flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
+      {% set _flashes = get_flashed_messages(with_categories=true) if get_flashed_messages is defined else [] %}
+      {% if _flashes %}
+        <div class="space-y-2" role="region" aria-label="Alerts">
+          {% for category, message in _flashes %}
+            {% set cat = (category or 'info')|lower %}
+            <div class="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border text-sm font-medium
+                        {{ 'bg-emerald-50 border-emerald-200 text-emerald-800' if cat in ['success', 'ok'] else
+                           ('bg-rose-50 border-rose-200 text-rose-800' if cat in ['error', 'danger'] else
+                           ('bg-amber-50 border-amber-200 text-amber-800' if cat == 'warning' else
+                            'bg-brand-50 border-brand-200 text-brand-800')) }}">
+              <span>{{ message }}</span>
+              <button type="button"
+                      onclick="this.parentElement.remove()"
+                      class="text-xs opacity-70 hover:opacity-100 px-1.5 py-0.5 rounded cursor-pointer"
+                      aria-label="Dismiss alert">✕</button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
       {% block content %}{% endblock %}
     </main>
 
     <!-- Footer -->
-    <footer class="border-t border-slate-100 px-4 sm:px-6 py-4 text-xs text-slate-500 flex flex-col sm:flex-row gap-2 items-center justify-between shrink-0 bg-white">
-      <p>© {{ now.year if now else '' }} {{ platform_name }} · All rights reserved</p>
-      <p class="flex items-center gap-3">
-        <a href="{{ url_for('main.contact') }}#privacy" class="hover:text-brand-600">Privacy</a>
-        <a href="{{ url_for('main.contact') }}#terms" class="hover:text-brand-600">Terms</a>
-        <a href="{{ url_for('main.contact') }}" class="hover:text-brand-600">Status</a>
+    <footer class="border-t border-slate-200/70 px-4 sm:px-6 py-4 text-xs text-slate-500 flex flex-col sm:flex-row gap-2 items-center justify-between shrink-0 bg-white">
+      <p>© {{ now.year if now is defined and now else '2026' }} {{ platform_name }} · All rights reserved</p>
+      <p class="flex items-center gap-4">
+        <a href="{{ url_for('main.contact') }}#privacy" class="hover:text-brand-600 transition">Privacy</a>
+        <a href="{{ url_for('main.contact') }}#terms" class="hover:text-brand-600 transition">Terms</a>
+        <a href="{{ url_for('main.contact') }}" class="hover:text-brand-600 transition">Status</a>
       </p>
     </footer>
+  </div>
+</div>
+
+<!-- ========== COMMAND PALETTE MODAL (⌘K / Ctrl+K) ========== -->
+<div id="command-palette-backdrop"
+     onclick="closeCommandPalette()"
+     class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs hidden items-start justify-center pt-16 sm:pt-24 px-4"
+     role="dialog"
+     aria-modal="true"
+     aria-label="Quick navigation search">
+  <div onclick="event.stopPropagation()"
+       class="w-full max-w-lg rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden">
+    <div class="flex items-center gap-3 px-4 py-3 border-b border-slate-100">
+      <span class="text-slate-400 shrink-0" aria-hidden="true">{{ icon('search') }}</span>
+      <input type="search"
+             id="command-palette-input"
+             placeholder="Jump to a page or action…"
+             autocomplete="off"
+             class="flex-1 text-sm text-slate-900 placeholder:text-slate-400 bg-transparent outline-none">
+      <button type="button"
+              onclick="closeCommandPalette()"
+              class="text-[11px] font-semibold text-slate-400 hover:text-slate-700 border border-slate-200 rounded px-1.5 py-0.5 cursor-pointer">
+        ESC
+      </button>
+    </div>
+
+    <div id="command-palette-results" class="max-h-72 overflow-y-auto p-2 space-y-1 text-sm">
+      {% for section_title, items in nav_sections %}
+        {% for endpoint, _icon_name, label, desc in items %}
+          <a href="{{ url_for(endpoint) }}"
+             data-cmd-item
+             data-cmd-text="{{ (label ~ ' ' ~ desc ~ ' ' ~ section_title)|lower }}"
+             class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl hover:bg-brand-50 group transition">
+            <div class="min-w-0">
+              <p class="font-semibold text-slate-800 group-hover:text-brand-700 truncate">{{ label }}</p>
+              <p class="text-xs text-slate-500 truncate">{{ desc }}</p>
+            </div>
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 bg-slate-100 group-hover:bg-brand-100 group-hover:text-brand-700 px-2 py-0.5 rounded shrink-0">
+              {{ section_title }}
+            </span>
+          </a>
+        {% endfor %}
+      {% endfor %}
+      <a href="{{ url_for('super_admin.school_new') }}"
+         data-cmd-item
+         data-cmd-text="add new school create tenant onboard"
+         class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-xl hover:bg-brand-50 group transition border-t border-slate-100 mt-1 pt-2.5">
+        <div class="min-w-0">
+          <p class="font-semibold text-brand-600 group-hover:text-brand-700 truncate">+ Add new school</p>
+          <p class="text-xs text-slate-500 truncate">Onboard a new school tenant</p>
+        </div>
+        <span class="text-[10px] font-semibold uppercase tracking-wider text-brand-700 bg-brand-50 px-2 py-0.5 rounded shrink-0">
+          Action
+        </span>
+      </a>
+    </div>
+
+    <div id="command-palette-empty" class="hidden px-4 py-8 text-center text-xs text-slate-500">
+      No matching pages or actions found.
+    </div>
   </div>
 </div>
 
@@ -337,46 +424,130 @@
 {% block scripts %}
 <script>
   function openDrawer() {
-    document.getElementById('sidebar').classList.remove('-translate-x-full');
-    document.getElementById('drawer-overlay').classList.remove('hidden');
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('drawer-overlay');
+    if (sidebar) sidebar.classList.remove('-translate-x-full');
+    if (overlay) overlay.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
   }
+
   function closeDrawer() {
-    document.getElementById('sidebar').classList.add('-translate-x-full');
-    document.getElementById('drawer-overlay').classList.add('hidden');
-    document.body.style.overflow = '';
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('drawer-overlay');
+    if (sidebar) sidebar.classList.add('-translate-x-full');
+    if (overlay) overlay.classList.add('hidden');
+    if (!isCommandPaletteOpen()) {
+      document.body.style.overflow = '';
+    }
   }
-  function toggleDropdown(id) {
-    const menu = document.querySelector('[data-dropdown-menu="' + id + '"]');
-    if (!menu) return;
-    const isOpen = !menu.classList.contains('hidden');
+
+  function closeAllDropdowns() {
     document.querySelectorAll('[data-dropdown-menu]').forEach(function (m) {
       m.classList.add('hidden');
     });
-    if (!isOpen) menu.classList.remove('hidden');
+    document.querySelectorAll('[data-dropdown] button[aria-expanded]').forEach(function (btn) {
+      btn.setAttribute('aria-expanded', 'false');
+    });
   }
+
+  function toggleDropdown(id, triggerBtn) {
+    const menu = document.querySelector('[data-dropdown-menu="' + id + '"]');
+    if (!menu) return;
+    const isOpen = !menu.classList.contains('hidden');
+    closeAllDropdowns();
+    if (!isOpen) {
+      menu.classList.remove('hidden');
+      if (triggerBtn) triggerBtn.setAttribute('aria-expanded', 'true');
+    }
+  }
+
+  function isCommandPaletteOpen() {
+    const backdrop = document.getElementById('command-palette-backdrop');
+    return backdrop && !backdrop.classList.contains('hidden');
+  }
+
+  function openCommandPalette() {
+    const backdrop = document.getElementById('command-palette-backdrop');
+    const input = document.getElementById('command-palette-input');
+    if (!backdrop) return;
+    closeAllDropdowns();
+    backdrop.classList.remove('hidden');
+    backdrop.classList.add('flex');
+    document.body.style.overflow = 'hidden';
+    if (input) {
+      input.value = '';
+      filterCommandItems('');
+      setTimeout(() => input.focus(), 10);
+    }
+  }
+
+  function closeCommandPalette() {
+    const backdrop = document.getElementById('command-palette-backdrop');
+    if (!backdrop) return;
+    backdrop.classList.add('hidden');
+    backdrop.classList.remove('flex');
+    document.body.style.overflow = '';
+  }
+
+  function filterCommandItems(query) {
+    const q = (query || '').trim().toLowerCase();
+    const items = Array.from(document.querySelectorAll('[data-cmd-item]'));
+    const emptyEl = document.getElementById('command-palette-empty');
+    let visible = 0;
+
+    items.forEach(function (el) {
+      const hay = el.getAttribute('data-cmd-text') || el.textContent.toLowerCase();
+      const match = !q || hay.includes(q);
+      el.classList.toggle('hidden', !match);
+      if (match) visible++;
+    });
+
+    if (emptyEl) {
+      emptyEl.classList.toggle('hidden', visible > 0);
+    }
+  }
+
   document.addEventListener('click', function (e) {
     if (!e.target.closest('[data-dropdown]')) {
-      document.querySelectorAll('[data-dropdown-menu]').forEach(function (m) {
-        m.classList.add('hidden');
-      });
+      closeAllDropdowns();
     }
   });
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape') {
-      document.querySelectorAll('[data-dropdown-menu]').forEach(function (m) {
-        m.classList.add('hidden');
-      });
-      closeDrawer();
-    }
-  });
+
   document.addEventListener('keydown', function (e) {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
-      var s = document.getElementById('global-search');
-      if (s) s.focus();
+      if (isCommandPaletteOpen()) {
+        closeCommandPalette();
+      } else {
+        openCommandPalette();
+      }
+      return;
+    }
+
+    if (e.key === 'Escape') {
+      closeAllDropdowns();
+      closeCommandPalette();
+      closeDrawer();
     }
   });
+
+  document.addEventListener('DOMContentLoaded', function () {
+    const cmdInput = document.getElementById('command-palette-input');
+    if (cmdInput) {
+      cmdInput.addEventListener('input', function (e) {
+        filterCommandItems(e.target.value);
+      });
+      cmdInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          const firstVisible = document.querySelector('[data-cmd-item]:not(.hidden)');
+          if (firstVisible && firstVisible.href) {
+            window.location.href = firstVisible.href;
+          }
+        }
+      });
+    }
+  });
+
   function tick() {
     const el = document.getElementById('live-clock');
     if (!el) return;
@@ -387,8 +558,10 @@
       hour: '2-digit', minute: '2-digit'
     });
   }
+
   tick();
   setInterval(tick, 30000);
+
   window.addEventListener('resize', function () {
     if (window.innerWidth >= 1024) closeDrawer();
   });
