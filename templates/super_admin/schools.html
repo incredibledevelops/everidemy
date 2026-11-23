@@ -6,297 +6,398 @@
 
 {% set _total_pages = ((total - 1) // per_page) + 1 if total and per_page else 1 %}
 {% set _now = now if now is defined and now else none %}
+{% set _schools = schools if schools is defined and schools else [] %}
+{% set _total = total if total is defined else 0 %}
+{% set _per_page = per_page if per_page is defined else 0 %}
+{% set _page = page if page is defined else 1 %}
+{% set _search = search if search is defined and search else '' %}
+{% set _status_filter = status if status is defined and status else 'all' %}
 
-<!-- =========================
-     SUMMARY CARDS
-     ========================= -->
-<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-  <div class="bg-white rounded-2xl p-5 border border-slate-100">
-    <p class="text-xs uppercase font-semibold text-slate-500">Total schools</p>
-    <p class="mt-2 text-3xl font-extrabold">{{ total if total is defined else 0 }}</p>
-    <p class="mt-1 text-xs text-slate-500">
-      {{ 'Filtered results' if search or status != 'all' else 'Registered on Everidemy' }}
-    </p>
-  </div>
+<div class="space-y-6">
 
-  <div class="bg-white rounded-2xl p-5 border border-slate-100">
-    <p class="text-xs uppercase font-semibold text-slate-500">This page</p>
-    <p class="mt-2 text-3xl font-extrabold">{{ (schools if schools is defined and schools else [])|length }}</p>
-    <p class="mt-1 text-xs text-slate-500">Showing {{ (schools if schools is defined and schools else [])|length }} of {{ total if total is defined else 0 }}</p>
-  </div>
-
-  <div class="bg-white rounded-2xl p-5 border border-slate-100">
-    <p class="text-xs uppercase font-semibold text-slate-500">Per page</p>
-    <p class="mt-2 text-3xl font-extrabold">{{ per_page if per_page is defined else 0 }}</p>
-    <p class="mt-1 text-xs text-slate-500">Adjustable in code</p>
-  </div>
-
-  <div class="bg-white rounded-2xl p-5 border border-slate-100">
-    <p class="text-xs uppercase font-semibold text-slate-500">Page</p>
-    <p class="mt-2 text-3xl font-extrabold">
-      {{ page if page is defined else 1 }} <span class="text-slate-400 font-normal text-lg">/ {{ _total_pages }}</span>
-    </p>
-    <p class="mt-1 text-xs text-slate-500">Pagination</p>
-  </div>
-</div>
-
-
-<!-- =========================
-     SCHOOLS TABLE
-     ========================= -->
-<div class="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-
-  <!-- Header + filters -->
-  <div class="p-5 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between border-b border-slate-100">
-    <div class="min-w-0">
-      <h2 class="font-bold">
-        All schools
-        <span class="text-slate-400 font-normal">({{ total if total is defined else 0 }})</span>
-      </h2>
-      {% if search or status != 'all' %}
-        <p class="mt-1 text-xs text-slate-500">
-          Filtered by
-          {% if search %}<span class="font-semibold text-slate-700">“{{ search }}”</span>{% endif %}
-          {% if status != 'all' %}<span class="font-semibold text-slate-700">{{ status }}</span>{% endif %}
-        </p>
-      {% endif %}
-    </div>
-
-    <div class="flex flex-col sm:flex-row gap-2 sm:items-center">
-      <form method="GET" class="flex flex-col sm:flex-row gap-2">
-        <input type="text" name="q" value="{{ search or '' }}"
-               placeholder="Search schools…"
-               aria-label="Search schools"
-               class="px-3 py-2 text-sm rounded-lg border border-slate-200
-                      focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none">
-        <select name="status"
-                aria-label="Filter by status"
-                class="px-3 py-2 text-sm rounded-lg border border-slate-200
-                       focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none bg-white">
-          <option value="all"      {{ 'selected' if status == 'all' }}>All statuses</option>
-          <option value="active"   {{ 'selected' if status == 'active' }}>Active</option>
-          <option value="trialing" {{ 'selected' if status == 'trialing' }}>Trialing</option>
-          <option value="past_due" {{ 'selected' if status == 'past_due' }}>Past due</option>
-          <option value="canceled" {{ 'selected' if status == 'canceled' }}>Canceled</option>
-        </select>
-        <button class="px-4 py-2 text-sm font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 text-white">
-          Filter
-        </button>
-
-        {% if search or status != 'all' %}
-          <a href="{{ url_for('super_admin.schools_list') }}"
-             class="px-4 py-2 text-sm font-semibold rounded-lg border border-slate-200
-                    text-slate-600 hover:bg-slate-50 text-center">
-            Reset
-          </a>
-        {% endif %}
-      </form>
-
-      <a href="{{ url_for('super_admin.school_new') }}"
-         class="px-4 py-2 text-sm font-semibold rounded-lg bg-brand-600 hover:bg-brand-700
-                text-white whitespace-nowrap text-center">
-        + Add school
-      </a>
-    </div>
-  </div>
-
-  <!-- Table -->
-  <div class="overflow-x-auto">
-    <table class="w-full text-sm min-w-[860px]">
-      <thead class="bg-slate-50 text-slate-500 uppercase text-xs">
-        <tr>
-          <th class="text-left px-5 py-3 font-semibold">School</th>
-          <th class="text-left px-5 py-3 font-semibold">Plan</th>
-          <th class="text-left px-5 py-3 font-semibold">Status</th>
-          <th class="text-left px-5 py-3 font-semibold">Students</th>
-          <th class="text-left px-5 py-3 font-semibold">Created</th>
-          <th class="text-right px-5 py-3 font-semibold"><span class="sr-only">Actions</span></th>
-        </tr>
-      </thead>
-
-      <tbody class="divide-y divide-slate-100">
-
-        {% set status_styles = {
-          'active':   'bg-green-50 text-green-700',
-          'trialing': 'bg-brand-50 text-brand-700',
-          'past_due': 'bg-red-50 text-red-700',
-          'canceled': 'bg-slate-100 text-slate-600',
-        } %}
-
-        {% for s in schools if schools is defined and schools %}
-          {% set s_plan   = s.plan if s.plan is defined else none %}
-          {% set s_status = (s.subscription_status if s.subscription_status is defined else '') or 'unknown' %}
-          {% set s_susp   = s.suspended if s.suspended is defined else false %}
-          {% set s_name   = s.name if s.name is defined and s.name else 'Untitled' %}
-          {% set s_count  = s._student_count if s._student_count is defined and s._student_count is not none else 0 %}
-          {% set s_created = s.created_at if s.created_at is defined else none %}
-          {% set s_trial_end = s.trial_ends_at if s.trial_ends_at is defined else none %}
-
-          {% set trial_days_left = none %}
-          {% if s_status == 'trialing' and s_trial_end and _now %}
-            {% set delta = (s_trial_end - _now).days %}
-            {% if delta >= 0 %}{% set trial_days_left = delta %}{% endif %}
-          {% endif %}
-
-          <tr class="hover:bg-slate-50 transition">
-
-            <td class="px-5 py-4">
-              <div class="flex items-center gap-3">
-                <div class="w-9 h-9 rounded-lg bg-brand-100 grid place-items-center text-brand-700 font-bold text-xs shrink-0"
-                     aria-hidden="true">
-                  {{ (s_name[:2])|upper }}
-                </div>
-                <div class="min-w-0">
-                  <p class="font-semibold truncate">{{ s_name }}</p>
-                  {% if s.phone %}
-                    <p class="text-xs text-slate-500 truncate">{{ s.phone }}</p>
-                  {% else %}
-                    <p class="text-xs text-slate-400 truncate">{{ s._id }}</p>
-                  {% endif %}
-                </div>
-              </div>
-            </td>
-
-            <td class="px-5 py-4">
-              {% if plans is defined and plans and s_plan and s_plan in plans %}
-                <span class="text-xs font-semibold px-2 py-1 rounded bg-slate-100 text-slate-700">
-                  {{ plans[s_plan].name or s_plan }}
-                </span>
-              {% else %}
-                <span class="text-xs font-semibold px-2 py-1 rounded bg-slate-100 text-slate-500">
-                  Trial
-                </span>
-              {% endif %}
-            </td>
-
-            <td class="px-5 py-4">
-              <div class="flex flex-wrap items-center gap-1">
-                <span class="text-xs font-semibold px-2 py-1 rounded
-                             {{ status_styles.get(s_status, 'bg-slate-100 text-slate-700') }}">
-                  ● {{ s_status|replace('_',' ')|capitalize }}
-                </span>
-
-                {% if s_susp %}
-                  <span class="text-xs font-semibold px-2 py-1 rounded bg-red-50 text-red-700">
-                    Suspended
-                  </span>
-                {% endif %}
-
-                {% if trial_days_left is not none and trial_days_left <= 3 %}
-                  <span class="text-xs font-semibold px-2 py-1 rounded bg-amber-50 text-amber-700">
-                    ⏳ {{ trial_days_left }}d left
-                  </span>
-                {% endif %}
-              </div>
-            </td>
-
-            <td class="px-5 py-4">
-              <span class="font-semibold">{{ s_count }}</span>
-              <span class="text-xs text-slate-400 ml-1">students</span>
-            </td>
-
-            <td class="px-5 py-4 text-slate-500 whitespace-nowrap">
-              {{ s_created.strftime('%b %d, %Y') if s_created else '—' }}
-            </td>
-
-            <td class="px-5 py-4 text-right whitespace-nowrap">
-              <a href="{{ url_for('super_admin.school_detail', school_id=s._id) }}"
-                 class="text-brand-600 font-semibold hover:underline">View</a>
-              <a href="{{ url_for('super_admin.school_edit', school_id=s._id) }}"
-                 class="ml-3 text-slate-600 font-semibold hover:underline hover:text-slate-800">Edit</a>
-            </td>
-          </tr>
-
-        {% else %}
-          <tr>
-            <td colspan="6" class="px-5 py-16 text-center">
-              <div class="max-w-sm mx-auto">
-                <div class="w-16 h-16 mx-auto rounded-2xl bg-brand-50 grid place-items-center text-brand-600 text-2xl"
-                     aria-hidden="true">
-                  🏫
-                </div>
-                <p class="mt-4 font-semibold text-slate-700">
-                  {% if search or status != 'all' %}No schools match your filters{% else %}No schools yet{% endif %}
-                </p>
-                <p class="mt-1 text-sm text-slate-500">
-                  {% if search or status != 'all' %}
-                    Try a different search term or reset the filters.
-                  {% else %}
-                    Add your first school to get started.
-                  {% endif %}
-                </p>
-                <div class="mt-4 flex items-center justify-center gap-2">
-                  {% if search or status != 'all' %}
-                    <a href="{{ url_for('super_admin.schools_list') }}"
-                       class="px-4 py-2 text-sm font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50">
-                      Clear filters
-                    </a>
-                  {% endif %}
-                  <a href="{{ url_for('super_admin.school_new') }}"
-                     class="px-4 py-2 text-sm font-semibold rounded-lg bg-brand-600 hover:bg-brand-700 text-white">
-                    + Add school
-                  </a>
-                </div>
-              </div>
-            </td>
-          </tr>
-        {% endfor %}
-
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Pagination -->
-  {% if total is defined and per_page is defined and page is defined and total > per_page %}
-    <div class="p-5 flex flex-col sm:flex-row gap-3 items-center justify-between border-t border-slate-100 text-sm">
-      <p class="text-slate-500">
-        Showing
-        <span class="font-semibold text-slate-700">{{ (page - 1) * per_page + 1 }}</span>–<span class="font-semibold text-slate-700">{{ [page * per_page, total]|min }}</span>
-        of <span class="font-semibold text-slate-700">{{ total }}</span>
+  <!-- =========================
+       SUMMARY CARDS
+       ========================= -->
+  <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-white rounded-2xl p-5 border border-slate-200/70 shadow-xs hover:border-slate-300 transition">
+      <div class="flex items-center justify-between">
+        <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Total schools</p>
+        <span class="w-8 h-8 rounded-xl bg-brand-50 text-brand-600 grid place-items-center text-sm" aria-hidden="true">🏫</span>
+      </div>
+      <p class="mt-3 text-3xl font-extrabold text-slate-900 tracking-tight">{{ _total }}</p>
+      <p class="mt-1.5 text-xs text-slate-500">
+        {{ 'Filtered results' if _search or _status_filter != 'all' else 'Registered on Everidemy' }}
       </p>
+    </div>
 
-      <div class="flex items-center gap-1">
-        {% if page > 1 %}
-          <a href="{{ url_for('super_admin.schools_list', page=page-1, q=search, status=status) }}"
-             class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium">← Prev</a>
-        {% else %}
-          <span class="px-3 py-1.5 rounded-lg border border-slate-100 text-slate-300 select-none">← Prev</span>
-        {% endif %}
+    <div class="bg-white rounded-2xl p-5 border border-slate-200/70 shadow-xs hover:border-slate-300 transition">
+      <div class="flex items-center justify-between">
+        <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">This page</p>
+        <span class="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 grid place-items-center text-sm" aria-hidden="true">📄</span>
+      </div>
+      <p class="mt-3 text-3xl font-extrabold text-slate-900 tracking-tight">{{ _schools|length }}</p>
+      <p class="mt-1.5 text-xs text-slate-500">Showing {{ _schools|length }} of {{ _total }}</p>
+    </div>
 
-        {% set start = [1, page - 2]|max %}
-        {% set end   = [_total_pages, start + 4]|min %}
-        {% set start = [1, end - 4]|max %}
+    <div class="bg-white rounded-2xl p-5 border border-slate-200/70 shadow-xs hover:border-slate-300 transition">
+      <div class="flex items-center justify-between">
+        <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Per page</p>
+        <span class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 grid place-items-center text-sm" aria-hidden="true">📐</span>
+      </div>
+      <p class="mt-3 text-3xl font-extrabold text-slate-900 tracking-tight">{{ _per_page }}</p>
+      <p class="mt-1.5 text-xs text-slate-500">Adjustable in code</p>
+    </div>
 
-        {% if start > 1 %}
-          <a href="{{ url_for('super_admin.schools_list', page=1, q=search, status=status) }}"
-             class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">1</a>
-          {% if start > 2 %}<span class="px-2 text-slate-400">…</span>{% endif %}
-        {% endif %}
+    <div class="bg-white rounded-2xl p-5 border border-slate-200/70 shadow-xs hover:border-slate-300 transition">
+      <div class="flex items-center justify-between">
+        <p class="text-xs uppercase tracking-wider font-semibold text-slate-500">Page</p>
+        <span class="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 grid place-items-center text-sm" aria-hidden="true">🔢</span>
+      </div>
+      <p class="mt-3 text-3xl font-extrabold text-slate-900 tracking-tight">
+        {{ _page }} <span class="text-slate-400 font-normal text-lg">/ {{ _total_pages }}</span>
+      </p>
+      <p class="mt-1.5 text-xs text-slate-500">Pagination</p>
+    </div>
+  </div>
 
-        {% for p in range(start, end + 1) %}
-          <a href="{{ url_for('super_admin.schools_list', page=p, q=search, status=status) }}"
-             class="px-3 py-1.5 rounded-lg border font-medium
-                    {{ 'bg-brand-600 text-white border-brand-600' if p == page else 'border-slate-200 hover:bg-slate-50' }}">
-            {{ p }}
-          </a>
-        {% endfor %}
 
-        {% if end < _total_pages %}
-          {% if end < _total_pages - 1 %}<span class="px-2 text-slate-400">…</span>{% endif %}
-          <a href="{{ url_for('super_admin.schools_list', page=_total_pages, q=search, status=status) }}"
-             class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50">{{ _total_pages }}</a>
-        {% endif %}
+  <!-- =========================
+       SCHOOLS TABLE CARD
+       ========================= -->
+  <div class="bg-white rounded-2xl border border-slate-200/70 shadow-xs overflow-hidden">
 
-        {% if page < _total_pages %}
-          <a href="{{ url_for('super_admin.schools_list', page=page+1, q=search, status=status) }}"
-             class="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-medium">Next →</a>
-        {% else %}
-          <span class="px-3 py-1.5 rounded-lg border border-slate-100 text-slate-300 select-none">Next →</span>
-        {% endif %}
+    <!-- Header + Quick Status Pills + Search/Filter Form -->
+    <div class="p-5 border-b border-slate-100 space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <h2 class="font-bold text-slate-900">All schools</h2>
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+              {{ _total }}
+            </span>
+          </div>
+          {% if _search or _status_filter != 'all' %}
+            <p class="mt-1 text-xs text-slate-500">
+              Filtered by
+              {% if _search %}<span class="font-semibold text-slate-700">“{{ _search }}”</span>{% endif %}
+              {% if _search and _status_filter != 'all' %} · {% endif %}
+              {% if _status_filter != 'all' %}<span class="font-semibold text-slate-700">{{ _status_filter|replace('_', ' ')|capitalize }}</span>{% endif %}
+            </p>
+          {% else %}
+            <p class="mt-0.5 text-xs text-slate-500">Search tenants, inspect subscription states, and manage school profiles.</p>
+          {% endif %}
+        </div>
+
+        <a href="{{ url_for('super_admin.school_new') }}"
+           class="inline-flex items-center justify-center gap-1.5 px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-brand-600 hover:bg-brand-700 text-white whitespace-nowrap shadow-xs transition">
+          + Add school
+        </a>
+      </div>
+
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 pt-1">
+        <!-- Quick Status Tabs -->
+        {% set status_tabs = [
+          ('all',      'All'),
+          ('active',   'Active'),
+          ('trialing', 'Trialing'),
+          ('past_due', 'Past due'),
+          ('canceled', 'Canceled'),
+        ] %}
+        <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Quick status filter">
+          {% for val, label in status_tabs %}
+            {% set active_tab = (_status_filter == val) %}
+            <a href="{{ url_for('super_admin.schools_list', q=_search, status=val) }}"
+               class="px-3 py-1.5 rounded-lg text-xs font-semibold transition
+                      {{ 'bg-brand-600 text-white shadow-xs' if active_tab else 'bg-slate-100 text-slate-600 hover:bg-slate-200/70 hover:text-slate-900' }}">
+              {{ label }}
+            </a>
+          {% endfor %}
+        </div>
+
+        <!-- Search & Filter Form -->
+        <form method="GET" action="{{ url_for('super_admin.schools_list') }}" class="flex flex-col sm:flex-row gap-2">
+          <div class="relative">
+            <input type="text"
+                   id="schools-search-input"
+                   name="q"
+                   value="{{ _search }}"
+                   placeholder="Search schools, phone, ID…"
+                   aria-label="Search schools"
+                   class="w-full sm:w-60 px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white
+                          focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition">
+          </div>
+
+          <select name="status"
+                  id="schools-status-select"
+                  aria-label="Filter by status"
+                  class="px-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white
+                         focus:border-brand-500 focus:ring-4 focus:ring-brand-500/10 outline-none transition">
+            <option value="all"      {{ 'selected' if _status_filter == 'all' }}>All statuses</option>
+            <option value="active"   {{ 'selected' if _status_filter == 'active' }}>Active</option>
+            <option value="trialing" {{ 'selected' if _status_filter == 'trialing' }}>Trialing</option>
+            <option value="past_due" {{ 'selected' if _status_filter == 'past_due' }}>Past due</option>
+            <option value="canceled" {{ 'selected' if _status_filter == 'canceled' }}>Canceled</option>
+          </select>
+
+          <button type="submit"
+                  class="px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-slate-900 hover:bg-slate-800 text-white transition cursor-pointer">
+            Filter
+          </button>
+
+          {% if _search or _status_filter != 'all' %}
+            <a href="{{ url_for('super_admin.schools_list') }}"
+               class="px-3.5 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200
+                      text-slate-600 hover:bg-slate-50 text-center transition">
+              Reset
+            </a>
+          {% endif %}
+        </form>
       </div>
     </div>
-  {% endif %}
+
+    <!-- Table -->
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm min-w-[860px]">
+        <thead class="bg-slate-50/80 text-slate-500 uppercase text-[11px] tracking-wider border-b border-slate-100">
+          <tr>
+            <th class="text-left px-5 py-3 font-semibold">School</th>
+            <th class="text-left px-5 py-3 font-semibold">Plan</th>
+            <th class="text-left px-5 py-3 font-semibold">Status</th>
+            <th class="text-left px-5 py-3 font-semibold">Students</th>
+            <th class="text-left px-5 py-3 font-semibold">Created</th>
+            <th class="text-right px-5 py-3 font-semibold">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody id="schools-table-body" class="divide-y divide-slate-100">
+
+          {% set status_styles = {
+            'active':   'bg-emerald-50 text-emerald-700 border border-emerald-200/60',
+            'trialing': 'bg-brand-50 text-brand-700 border border-brand-200/60',
+            'past_due': 'bg-rose-50 text-rose-700 border border-rose-200/60',
+            'canceled': 'bg-slate-100 text-slate-600 border border-slate-200/60',
+          } %}
+
+          {% for s in _schools %}
+            {% set s_plan      = s.plan if s.plan is defined else none %}
+            {% set s_status    = (s.subscription_status if s.subscription_status is defined else '') or 'unknown' %}
+            {% set s_susp      = s.suspended if s.suspended is defined else false %}
+            {% set s_name      = s.name if s.name is defined and s.name else 'Untitled' %}
+            {% set s_count     = s._student_count if s._student_count is defined and s._student_count is not none else 0 %}
+            {% set s_created   = s.created_at if s.created_at is defined else none %}
+            {% set s_trial_end = s.trial_ends_at if s.trial_ends_at is defined else none %}
+
+            {% set trial_days_left = none %}
+            {% if s_status == 'trialing' and s_trial_end and _now %}
+              {% set delta = (s_trial_end - _now).days %}
+              {% if delta >= 0 %}{% set trial_days_left = delta %}{% endif %}
+            {% endif %}
+
+            <tr class="school-row hover:bg-slate-50/80 transition">
+
+              <td class="px-5 py-4">
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-50 to-brand-100 border border-brand-200/60 grid place-items-center text-brand-700 font-bold text-xs shrink-0"
+                       aria-hidden="true">
+                    {{ (s_name[:2])|upper }}
+                  </div>
+                  <div class="min-w-0">
+                    <a href="{{ url_for('super_admin.school_detail', school_id=s._id) }}"
+                       class="font-semibold text-slate-900 hover:text-brand-600 transition truncate block">
+                      {{ s_name }}
+                    </a>
+                    {% if s.phone %}
+                      <p class="text-xs text-slate-500 truncate">{{ s.phone }}</p>
+                    {% else %}
+                      <p class="text-xs text-slate-400 font-mono truncate">{{ s._id }}</p>
+                    {% endif %}
+                  </div>
+                </div>
+              </td>
+
+              <td class="px-5 py-4">
+                {% if plans is defined and plans and s_plan and s_plan in plans %}
+                  <span class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 border border-slate-200/60">
+                    {{ plans[s_plan].name or s_plan }}
+                  </span>
+                {% else %}
+                  <span class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-slate-500 border border-slate-200/60">
+                    Trial
+                  </span>
+                {% endif %}
+              </td>
+
+              <td class="px-5 py-4">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="text-xs font-semibold px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5
+                               {{ status_styles.get(s_status, 'bg-slate-100 text-slate-700 border border-slate-200/60') }}">
+                    <span class="w-1.5 h-1.5 rounded-full bg-current opacity-80"></span>
+                    {{ s_status|replace('_',' ')|capitalize }}
+                  </span>
+
+                  {% if s_susp %}
+                    <span class="text-xs font-semibold px-2 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200/60">
+                      Suspended
+                    </span>
+                  {% endif %}
+
+                  {% if trial_days_left is not none and trial_days_left <= 3 %}
+                    <span class="text-xs font-semibold px-2 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200/60">
+                      ⏳ {{ trial_days_left }}d left
+                    </span>
+                  {% endif %}
+                </div>
+              </td>
+
+              <td class="px-5 py-4">
+                <span class="font-semibold text-slate-900">{{ '{:,}'.format(s_count) }}</span>
+                <span class="text-xs text-slate-400 ml-1">students</span>
+              </td>
+
+              <td class="px-5 py-4 text-slate-500 text-xs whitespace-nowrap">
+                {{ s_created.strftime('%b %d, %Y') if s_created else '—' }}
+              </td>
+
+              <td class="px-5 py-4 text-right whitespace-nowrap">
+                <div class="inline-flex items-center gap-2">
+                  <a href="{{ url_for('super_admin.school_detail', school_id=s._id) }}"
+                     class="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-brand-700 bg-brand-50 hover:bg-brand-100 transition">
+                    View
+                  </a>
+                  <a href="{{ url_for('super_admin.school_edit', school_id=s._id) }}"
+                     class="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200/70 transition">
+                    Edit
+                  </a>
+                </div>
+              </td>
+            </tr>
+
+          {% else %}
+            <tr>
+              <td colspan="6" class="px-5 py-16 text-center">
+                <div class="max-w-sm mx-auto">
+                  <div class="w-16 h-16 mx-auto rounded-2xl bg-brand-50 grid place-items-center text-brand-600 text-2xl"
+                       aria-hidden="true">
+                    🏫
+                  </div>
+                  <p class="mt-4 font-semibold text-slate-800">
+                    {% if _search or _status_filter != 'all' %}No schools match your filters{% else %}No schools yet{% endif %}
+                  </p>
+                  <p class="mt-1 text-sm text-slate-500">
+                    {% if _search or _status_filter != 'all' %}
+                      Try a different search term or reset the filters.
+                    {% else %}
+                      Add your first school to get started.
+                    {% endif %}
+                  </p>
+                  <div class="mt-4 flex items-center justify-center gap-2">
+                    {% if _search or _status_filter != 'all' %}
+                      <a href="{{ url_for('super_admin.schools_list') }}"
+                         class="px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-50 transition">
+                        Clear filters
+                      </a>
+                    {% endif %}
+                    <a href="{{ url_for('super_admin.school_new') }}"
+                       class="px-4 py-2 text-xs sm:text-sm font-semibold rounded-xl bg-brand-600 hover:bg-brand-700 text-white transition">
+                      + Add school
+                    </a>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+
+          <tr id="schools-live-empty" class="hidden">
+            <td colspan="6" class="px-5 py-10 text-center text-xs text-slate-500">
+              No schools on this page match your live typing filter. Press <span class="font-semibold">Enter</span> to search all pages.
+            </td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if total is defined and per_page is defined and page is defined and total > per_page %}
+      <div class="p-5 flex flex-col sm:flex-row gap-3 items-center justify-between border-t border-slate-100 text-sm">
+        <p class="text-slate-500 text-xs sm:text-sm">
+          Showing
+          <span class="font-semibold text-slate-800">{{ (_page - 1) * _per_page + 1 }}</span>–<span class="font-semibold text-slate-800">{{ [_page * _per_page, _total]|min }}</span>
+          of <span class="font-semibold text-slate-800">{{ _total }}</span>
+        </p>
+
+        <div class="flex items-center gap-1">
+          {% if _page > 1 %}
+            <a href="{{ url_for('super_admin.schools_list', page=_page-1, q=_search, status=_status_filter) }}"
+               class="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 font-medium text-xs sm:text-sm transition">← Prev</a>
+          {% else %}
+            <span class="px-3 py-1.5 rounded-xl border border-slate-100 text-slate-300 select-none text-xs sm:text-sm">← Prev</span>
+          {% endif %}
+
+          {% set start = [1, _page - 2]|max %}
+          {% set end   = [_total_pages, start + 4]|min %}
+          {% set start = [1, end - 4]|max %}
+
+          {% if start > 1 %}
+            <a href="{{ url_for('super_admin.schools_list', page=1, q=_search, status=_status_filter) }}"
+               class="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs sm:text-sm transition">1</a>
+            {% if start > 2 %}<span class="px-2 text-slate-400">…</span>{% endif %}
+          {% endif %}
+
+          {% for p in range(start, end + 1) %}
+            <a href="{{ url_for('super_admin.schools_list', page=p, q=_search, status=_status_filter) }}"
+               class="px-3 py-1.5 rounded-xl border font-medium text-xs sm:text-sm transition
+                      {{ 'bg-brand-600 text-white border-brand-600' if p == _page else 'border-slate-200 hover:bg-slate-50' }}">
+              {{ p }}
+            </a>
+          {% endfor %}
+
+          {% if end < _total_pages %}
+            {% if end < _total_pages - 1 %}<span class="px-2 text-slate-400">…</span>{% endif %}
+            <a href="{{ url_for('super_admin.schools_list', page=_total_pages, q=_search, status=_status_filter) }}"
+               class="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs sm:text-sm transition">{{ _total_pages }}</a>
+          {% endif %}
+
+          {% if _page < _total_pages %}
+            <a href="{{ url_for('super_admin.schools_list', page=_page+1, q=_search, status=_status_filter) }}"
+               class="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 font-medium text-xs sm:text-sm transition">Next →</a>
+          {% else %}
+            <span class="px-3 py-1.5 rounded-xl border border-slate-100 text-slate-300 select-none text-xs sm:text-sm">Next →</span>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+  </div>
 
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const searchInput = document.getElementById('schools-search-input');
+    const rows = Array.from(document.querySelectorAll('.school-row'));
+    const emptyRow = document.getElementById('schools-live-empty');
+
+    if (searchInput && rows.length > 0) {
+      searchInput.addEventListener('input', function (e) {
+        const term = e.target.value.trim().toLowerCase();
+        let shown = 0;
+
+        rows.forEach(function (row) {
+          const match = !term || row.textContent.toLowerCase().includes(term);
+          row.classList.toggle('hidden', !match);
+          if (match) shown++;
+        });
+
+        if (emptyRow) {
+          emptyRow.classList.toggle('hidden', shown > 0);
+        }
+      });
+    }
+  });
+</script>
 {% endblock %}
